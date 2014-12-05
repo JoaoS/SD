@@ -11,6 +11,7 @@ public interface DataServer_I extends Remote {
     public int addUser(String name,String username,String pass,String job) throws java.rmi.RemoteException;
     public int addMeeting(String title, String desiredOutCome, Date date,String leader,String location) throws java.rmi.RemoteException;
     public int addUserMeeting(int idUser,int idMeeting,int going) throws java.rmi.RemoteException;
+    public int addAgendaItem(int idMeeting,String agendaTitle) throws java.rmi.RemoteException;
     public ArrayList <Meeting> listMeetings(String username) throws java.rmi.RemoteException;
     public  Meeting searchMeeting(String title,String username) throws java.rmi.RemoteException;
     public  ArrayList <ActionItem> searchActions(String username) throws java.rmi.RemoteException;
@@ -39,6 +40,10 @@ public interface DataServer_I extends Remote {
     public  int dummyMethod() throws java.rmi.RemoteException; 
     public int checkMeeting(String title,Date date) throws java.rmi.RemoteException;
     public void connectDB() throws java.rmi.RemoteException;
-    public int getTotalUsers() throws RemoteException,SQLException;
+    public int getTotalUsers() throws java.rmi.RemoteException,SQLException;
+    public int getTotalMeetings() throws java.rmi.RemoteException,SQLException;
+    public int getTotalAgendaItems() throws java.rmi.RemoteException,SQLException;
+
+
 
 }

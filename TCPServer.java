@@ -537,7 +537,7 @@ class Connection extends Thread {
     }
 
 
-    // ponto 1 do menu secundário ------> TRATAR DA EXCEPÇÃO DAS DATAS, VER SE USER JÁ FOI CONVIDADO
+    // ponto 1 do menu secundário ------> TRATAR DA EXCEPÇÃO DAS DATAS, VER SE USER JÁ FOI CONVIDADO, VER SE AGENDA MEETING JA FOI CRIADO
     public void scheduleMeeting() throws IOException                                    
     {
         ArrayList <String> invited = new ArrayList<String>();
@@ -668,24 +668,10 @@ class Connection extends Thread {
                     out.writeUTF("\nThis agenda item already exists.\n");
                     continue;
                 }
-                for(int i=0;i<agendaItems.size();i++)
-                {
-                    if(agendaItems.get(i).getTitle().equalsIgnoreCase(agendaTitle))
-                    {
-                        out.writeUTF("\nThis agenda item already exists.\n");
-                        checkAgenda = 1;
-                    }
-                }
-                if(checkAgenda ==1)
-                {
-                    checkAgenda = 0;
-                    continue;
-                }
-                AgendaItem nova = new AgendaItem(agendaTitle);
-                agendaItems.add(nova);    
+                h.addAgendaItem(idMeeting,agendaTitle);
             }
         }
-        agendaItems.add(new AgendaItem("Any other business"));                                                                               
+        h.addAgendaItem(idMeeting,"Any other business");                                                                               
     }
 
 

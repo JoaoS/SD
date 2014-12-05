@@ -161,6 +161,28 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         }
         return 1;
     }
+    
+    public int addAgendaItem(int idMeeting,String agendaTitle) throws RemoteException
+    {
+        PreparedStatement ps;
+        int id_agenda;
+        try
+        {
+            id_agenda = getTotalAgendaItems()+1;
+            ps = connection.prepareStatement("INSERT INTO AGENDA_ITEM VALUES(?,?,?)");
+            ps.setInt(1,id_agenda);
+            ps.setInt(2,idMeeting);
+            ps.setString(3,agendaTitle);
+            ps.executeQuery();
+            connection.commit();
+        }catch(Exception e){
+            System.out.println("\nException at line 179 : + \n");
+            e.printStackTrace();
+            return 0;
+        }
+        return 1;
+    }
+    
 
 
     public synchronized ArrayList <Meeting> listMeetings(String username) throws RemoteException
@@ -774,6 +796,17 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     {
         ResultSet rt;
         rt = connection.createStatement().executeQuery("SELECT COUNT(*) FROM MEETING");
+        if(rt.next())
+        {
+            return rt.getInt(1);
+        }
+        return 0;
+    }
+    
+    public int getTotalAgendaItems() throws RemoteException,SQLException
+    {
+        ResultSet rt;
+        rt = connection.createStatement().executeQuery("SELECT COUNT(*) FROM AGENDA_ITEM");
         if(rt.next())
         {
             return rt.getInt(1);
