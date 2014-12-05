@@ -1,4 +1,3 @@
-
 import java.net.*;
 import java.io.*;
 import java.util.*;
@@ -13,7 +12,6 @@ public class TCPClient2 {
     
     public static 	Socket s = null;
     public static 	int reconnections=10;
-
     
     public static void main(String args[]) { 
 	   	
@@ -59,7 +57,7 @@ public class TCPClient2 {
 				//e.printStackTrace();
 			}
 			try {
-				Thread.sleep(1500);
+				Thread.sleep(1000);
 			
 			}catch(InterruptedException threadex) {
 				System.out.println("Program error(thread), restart please");}

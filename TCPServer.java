@@ -1,9 +1,11 @@
 // TCPServer2.java: Multithreaded server
-
 import java.net.*;
 import java.io.*;
 import java.util.*;
 import java.rmi.*;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.*;
 import java.text.SimpleDateFormat;
 import java.text.ParseException;
 
@@ -12,15 +14,21 @@ public class TCPServer  {
  
     public static DataServer_I h;
     public static ArrayList<Connection> lista =new ArrayList<Connection>();
-    public static   int clientPort=6000;
-    public static   int udpPort=7000;      
+   
+    public static   int clientPort;
+    public static   int udpPort;
+       
     public static   String hostname="localhost";
-    public static   String firstIP="127.0.0.1";
-    public static   String secondIP="127.0.0.1";    
+    public static   int servernumber;
+       
+    public static   String firstIP;
+    public static   String secondIP;    
     public static   String pingIP;
-    public static   String rmiName="interface";
-    public static   String rmiIp="127.0.0.1";
-    public static   int rmiPort=5000;  
+       
+    public static   String rmiName;
+    public static   String rmiIp;
+    public static   int rmiPort;
+       
     public static   int WAIT=500; //milisseconds response thread wait
  
  
@@ -29,7 +37,7 @@ public class TCPServer  {
              
            
     //load default values////////////////////////////////////////////////////////////////////////
-    /*Properties prop = new Properties();
+    Properties prop = new Properties();
     InputStream input = null;
  
      try {
@@ -58,12 +66,13 @@ public class TCPServer  {
                 }
             }
         }
- */
+ 
       //h = (DataServer_I)LocateRegistry.getRegistry(rmiPort).lookup(rmiName);
         //////////////    RMI Connection         ////////////////////////////////////////////////////////
         try {
-            //System.getProperties().put("java.security.policy", "policy.all");
-           // System.setSecurityManager(new RMISecurityManager());
+            System.getProperties().put("java.security.policy", "policy.all");
+            System.setSecurityManager(new RMISecurityManager());
+             
            
             h = (DataServer_I)Naming.lookup("rmi://"+rmiIp+":"+rmiPort+"/"+rmiName);  
             } catch (Exception e) {
@@ -129,7 +138,7 @@ public class TCPServer  {
             }
            
            
-            //pingIP=secondIP;
+            pingIP=secondIP;
                                                                                                                                                         ////////////////////
             ///////////////////////////////////////////////////////////////////////////////////////
             InetAddress aHost = InetAddress.getByName(pingIP);
@@ -168,8 +177,7 @@ public class TCPServer  {
  
 }
     
-class Extra extends Thread
-{//will handle backup as a client(primary) or server(secundary)
+class Extra extends Thread{//will handle backup as a client(primary) or server(secundary)
        
     int serverPort;
     //String hst="localhost";
@@ -208,7 +216,7 @@ class Connection extends Thread {
     public DataInputStream in;
     public DataOutputStream out;
     public Socket clientSocket;
-    public int thread_number;
+    public int thread_number,myIdUser;
     public DataServer_I h;
     public String name,pass;
     public static ArrayList <ChatUser> chatUsers = new ArrayList <ChatUser>();    
@@ -280,7 +288,6 @@ class Connection extends Thread {
 
     public  void menuInicial()throws IOException
     {
-
         int check=0;
         int num=0;
         String ini="\n-------------------Initial MENU-----------------\n\n1->Login\n\n2->Registo";
@@ -302,7 +309,6 @@ class Connection extends Thread {
                     out.writeUTF("Select a valid option.");
 
             }while(num==0 || num>2);
-
            switch(num){
 
                 case 1:
@@ -320,13 +326,10 @@ class Connection extends Thread {
            }
 
         }while(check==0);
-
     }
 
     public void login() throws IOException
     {
-        
-        int check=0;
         String ini="\n-------------------MENU login-----------------\n";
         out.writeUTF(ini);
         int menu = 1;
@@ -336,14 +339,18 @@ class Connection extends Thread {
             out.writeUTF("\nPassword:\n");
             pass =in.readUTF();
             try{ 
-                check = h.checkUserPass(name,pass);         
+                myIdUser = h.checkUserPass(name,pass);         
            } catch (RemoteException e) {    
-                restartRmi();
+            restartRmi();
            }
-
-            if(check ==0)
+            myIdUser = h.checkUserPass(name,pass);
+            if(myIdUser ==0)
             {
                 out.writeUTF("\nWrong username or password.\n");
+            }
+            else if(myIdUser == -1)
+            {
+                out.writeUTF("\nSome error occured, please try again.\n");
             }
             else
             {
@@ -358,7 +365,7 @@ class Connection extends Thread {
                     menu = menuSecundario();
                 }
             }
-        }while(check==0);
+        }while(myIdUser==0);
     }
 
 
@@ -381,17 +388,13 @@ class Connection extends Thread {
                     chatUsers.add(new ChatUser(name,aux.get(i).getTitle(),aux.get(i).getDate(),new DataOutputStream(clientSocket.getOutputStream()),false,agenda.get(j).getTitle())); 
                 }    
             }
-            //System.out.println("\nAdd to chats : ");
-            for(int j=0;j<chatUsers.size();j++)
-            {
-                    //System.out.println(chatUsers.get(j).getUser() + " " +  chatUsers.get(j).getMeetingTitle() + " " + chatUsers.get(j).getAgendaTitle());
-            }
         }
     }
 
 
-    public void register() throws IOException
-    {
+    public void register() throws IOException                                                               
+    {                                                                               
+        
         int check=0,checkAdd = 0;
         String ini="\n-------------------MENU register-----------------\n";
         out.writeUTF(ini);
@@ -405,9 +408,9 @@ class Connection extends Thread {
             out.writeUTF("\nJob title:\n");
             String job =in.readUTF();
             try{
-                check = h.checkUser(username);
+                 check = h.checkUser(username);
             } catch (RemoteException e) {
-                restartRmi();
+                restartRmi(); 
                 check = h.checkUser(username);
             }
             if(check == 1)
@@ -421,10 +424,10 @@ class Connection extends Thread {
             else
             {
                 try{
-                    checkAdd = h.addUser(name,username,pass,job);
-                } catch (RemoteException e) {
-                    restartRmi();
-                    checkAdd = h.addUser(name,username,pass,job);
+                     checkAdd = h.addUser(name,username,pass,job);
+                } catch (RemoteException e) {    
+                 restartRmi();
+                 checkAdd = h.addUser(name,username,pass,job);
                 }
                 if(checkAdd ==0)
                 {
@@ -531,15 +534,10 @@ class Connection extends Thread {
         {
 
         }
-       // System.out.println("\nremove chats : ");
-        for(int j=0;j<chatUsers.size();j++)
-        {
-                    System.out.println(chatUsers.get(j).getUser() + " " +  chatUsers.get(j).getMeetingTitle() + " " + chatUsers.get(j).getAgendaTitle());
-        }
     }
 
 
-    // ponto 1 do menu secundário
+    // ponto 1 do menu secundário ------> TRATAR DA EXCEPÇÃO DAS DATAS, VER SE USER JÁ FOI CONVIDADO
     public void scheduleMeeting() throws IOException                                    
     {
         ArrayList <String> invited = new ArrayList<String>();
@@ -548,13 +546,13 @@ class Connection extends Thread {
         String s = "", username = "",agendaTitle;
         int checkUser=0,checkAgenda  =0,checkData=0;
         Date date = new Date();
-        Date current = new Date();
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
         formatter.setLenient(false);
         out.writeUTF("\nTitle:\n");
         String title =in.readUTF();
         out.writeUTF("\nDesired outcome:\n");
         String outcome =in.readUTF();
+        int idMeeting = 0,idUser=0;
         while(checkData !=1)
         {   
             out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
@@ -562,15 +560,7 @@ class Connection extends Thread {
             try
             {
                 date = formatter.parse(data);
-                if(date.before(current) || date.equals(current))
-                {
-                    out.writeUTF("\nDate belongs to the past.\n");
-                    checkData = 0;
-                }
-                else
-                {
-                    checkData =1;
-                }
+                checkData = 1;
             }catch(ParseException e)
             {
                 checkData =0;
@@ -579,19 +569,25 @@ class Connection extends Thread {
         }                                                                
         out.writeUTF("\nLocation:\n");
         String location =in.readUTF();
-        try{
-            
-            if(h.checkMeeting(title,outcome,date,location) ==1)
+        // add meeting to meeting table at database
+        try
+        {    
+            if(h.checkMeeting(title,outcome,date,location) == 1)
             {
                 out.writeUTF("\nA meeting with this parameters already exists.\n");
                 return;
             }
-            
+            else
+            {
+                if((idMeeting = h.addMeeting(title,outcome,date,name,location)) < 1)
+                {   
+                    out.writeUTF("\nAn error occurred, please try again.\n");
+                    return;
+                }  
+            }
        } catch (RemoteException e) {    
             restartRmi();
         }
-        going.add(name);
-        invited.add(name);
         out.writeUTF("\nInvite users to the meeting ? \n");
         do
         {
@@ -601,6 +597,15 @@ class Connection extends Thread {
                 out.writeUTF("\nInsert Y(YES) or N(No).\n");
             }
         }while(s.equals("Y") == false && s.equals("N") == false);
+        // add users to user_meeting table at database
+        try
+        {
+            h.addUserMeeting(myIdUser,idMeeting,1);
+        }
+        catch(RemoteException e)
+        {
+            restartRmi();
+        }
         if(s.equals("Y") == true)
         {
             out.writeUTF("\nChoose users by username to be invited(Insert 0 to stop) : \n");                                          
@@ -612,30 +617,27 @@ class Connection extends Thread {
                 {
                     break;
                 }
-                for(int i=0;i<invited.size();i++)
-                {
-                    if(invited.get(i).equals(username))
-                    {
-                        out.writeUTF("\nUser " + username + " is already invited.");
-                        checkUser = 1;
-                    }
-                }
-                if(checkUser ==1)
-                {
-                    checkUser = 0;
-                    continue;
-                }
-                try{    
-                    if(h.checkUser(username) == 1)                                                                                      
-                    {
-                        invited.add(username);
-                        out.writeUTF("\nUser sucessfully invited.\n");
-                    }
-                    else
+                try{  
+                    idUser = h.checkUser(username);
+                    if(idUser== 0)                                                                                      
                     {
                         out.writeUTF("\nNo user with that username exists.\n");
                     }
-                                        
+                    else if(idUser ==-1)
+                    {
+                        out.writeUTF("\nAn error occurred, please try again.\n");
+                    }
+                    else
+                    {
+                        if(h.addUserMeeting(idUser,idMeeting,0)==1)
+                        {
+                           out.writeUTF("\nUser sucessfully invited.\n"); 
+                        }
+                        else
+                        {
+                            out.writeUTF("\nSome error ocurred, please try again.\n");
+                        }
+                    }
                    } catch (RemoteException e) {    
                         restartRmi();
                    }
@@ -683,21 +685,7 @@ class Connection extends Thread {
                 agendaItems.add(nova);    
             }
         }
-        agendaItems.add(new AgendaItem("Any other business"));
-        try
-        {
-            if(h.addMeeting(title,outcome,date,agendaItems,invited,name,location,going) ==1)
-            {
-                out.writeUTF("\nMeeting scheduled.\n");
-            }
-            else
-            {
-                out.writeUTF("\nAn error occurred, pleas try again.\n");
-            }
-        }catch(RemoteException r)
-        {
-            restartRmi();
-        }                                                                                
+        agendaItems.add(new AgendaItem("Any other business"));                                                                               
     }
 
 

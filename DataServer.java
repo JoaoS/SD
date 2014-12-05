@@ -1,28 +1,32 @@
-
 import java.util.*;
 import java.rmi.registry.*;
 import java.rmi.server.*;
 import java.rmi.*;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectInputStream;
 import java.io.*;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-public class DataServer extends UnicastRemoteObject implements DataServer_I {
-
+public class DataServer extends UnicastRemoteObject implements DataServer_I{
+    
     private static final long serialVersionUID = 1L;
-    public static int rmiPort = 5000;
+    public static int rmiPort=5000;
     public static String name = "interface";
-    public static ArrayList<User> users = new ArrayList<User>();
-    public static ArrayList<Meeting> meetings = new ArrayList<Meeting>();
-
+    public static ArrayList <User> users = new  ArrayList<User>();
+    public static ArrayList <Meeting> meetings = new ArrayList<Meeting>();
+    
     public static java.sql.Connection connection = null;
-
-    public static PreparedStatement ps;
+    public ResultSet rt;
+    public Statement st;
+    public PreparedStatement ps;
     public static String IP = "localhost";
     public static String port = "1521";
     public static String SID = "XE";
@@ -30,23 +34,23 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I {
     public static String user = "bd";
     public static String pass = "bd";
 
-    DataServer(ArrayList<User> users, ArrayList<Meeting> meetings) throws RemoteException {
+     DataServer(ArrayList<User> users, ArrayList<Meeting> meetings)  throws RemoteException 
+    {   
         this.users = users;
         this.meetings = meetings;
     }
+    DataServer()  throws RemoteException  {super();}
+    
 
-    DataServer() throws RemoteException {
-        super();
-    }
-
-
-    public synchronized int dummyMethod() throws RemoteException {
+    public synchronized int dummyMethod() throws RemoteException
+    {
         return 0;
     }
 
 
-    public synchronized int checkUser(String username) throws RemoteException {
 
+    public int checkUser(String username) throws RemoteException
+    {
         ResultSet rt = null;
         try
         {
@@ -55,7 +59,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I {
             connection.commit();
             if(rt.next())
             {
-                return 1;
+                return rt.getInt(1);
             }
         }
         catch(Exception e)
@@ -65,12 +69,12 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I {
             return -1;
         }
         return 0;
-
     }
 
-    public synchronized int checkUserPass(String username, String password) throws RemoteException {
+    public synchronized int checkUserPass(String username,String password) throws RemoteException
+    {
         ResultSet rt = null;
-        try
+        try 
         {
             connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
             String s="SELECT ID_USER FROM USERS WHERE username = '" + username + "'AND pass = '" + password + "'";
@@ -78,7 +82,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I {
             connection.commit();
             if(rt.next())
             {
-                return 1;
+               return rt.getInt(1);
             }
         }
         catch(Exception e)
@@ -88,23 +92,10 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I {
             return -1;
         }
         return 0;
-
     }
 
 
-    public int getTotalUsers() throws RemoteException,SQLException
-    {
-        ResultSet rt;
-        rt = connection.createStatement().executeQuery("SELECT COUNT(*) FROM USERS");
-        if(rt.next())
-        {
-            return rt.getInt(1);
-        }
-        return 0;
-    }
-
-
-    public synchronized int addUser(String name,String username,String pass,String job) throws RemoteException
+    public int addUser(String name,String username,String pass,String job) throws RemoteException
     {
         PreparedStatement ps;
         try
@@ -118,33 +109,57 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I {
             ps.executeQuery();
             connection.commit();
         }catch(Exception e){
-            System.out.println("\nException at line 83 : + \n");
+            System.out.println("\nException at line 112 : + \n");
             e.printStackTrace();
             return 0;
         }
         return 1;
-
     }
 
 
-    public synchronized int addMeeting(String title, String desiredOutCome, Date date,ArrayList<AgendaItem> agendaItems,ArrayList <String> users,String leader,String location,ArrayList <String> going) throws RemoteException
+    public int addMeeting(String title, String desiredOutCome, Date date,String leader,String location) throws RemoteException
     {
-        try {
-			Thread.sleep(2000);
-		} catch (InterruptedException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+        PreparedStatement ps;
+        java.sql.Date sqlDate = new java.sql.Date(date.getTime());
+        int id_meeting;
         try
         {
-            Meeting novo = new Meeting(title,desiredOutCome,date,agendaItems,users,leader,location,going);  
-            meetings.add(novo);
-            saveFiles();
-            return 1;
+            id_meeting = getTotalMeetings()+1;
+            ps = connection.prepareStatement("INSERT INTO MEETING VALUES(?,?,?,?,?,?,?)");
+            ps.setInt(1,id_meeting);
+            ps.setString(2,title);
+            ps.setString(3,desiredOutCome);
+            ps.setDate(4,sqlDate);
+            ps.setString(5,leader);
+            ps.setString(6,location);
+            ps.setInt(7,0);
+            ps.executeQuery();
+            connection.commit();
         }catch(Exception e){
-            System.out.println("\nException at line 98.\n");
+            System.out.println("\nException at line 136.\n");
+            e.printStackTrace();
             return 0;
         }
+        return id_meeting;
+    }
+    
+    public int addUserMeeting(int idUser,int idMeeting,int going) throws RemoteException
+    {
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement("INSERT INTO USER_MEETING VALUES(?,?,?)");
+            ps.setInt(1,idUser);
+            ps.setInt(2,idMeeting);
+            ps.setInt(3,going);
+            ps.executeQuery();
+            connection.commit();
+        }catch(Exception e){
+            System.out.println("\nException at line 159 : + \n");
+            e.printStackTrace();
+            return 0;
+        }
+        return 1;
     }
 
 
@@ -639,12 +654,6 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I {
 
     public synchronized int saveMessage(String title,Date date,String agendaTitle,String message) throws RemoteException
     {
-        try {
-			Thread.sleep(2000);
-		} catch (InterruptedException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
         try
         {
             ArrayList <AgendaItem> aux= new ArrayList();
@@ -749,6 +758,29 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I {
         }
     }
 
+    
+    public int getTotalUsers() throws RemoteException,SQLException
+    {
+        ResultSet rt;
+        rt = connection.createStatement().executeQuery("SELECT COUNT(*) FROM USERS");
+        if(rt.next())
+        {
+            return rt.getInt(1);
+        }
+        return 0;
+    }
+    
+    public int getTotalMeetings() throws RemoteException,SQLException
+    {
+        ResultSet rt;
+        rt = connection.createStatement().executeQuery("SELECT COUNT(*) FROM MEETING");
+        if(rt.next())
+        {
+            return rt.getInt(1);
+        }
+        return 0;
+    }
+    
 
     public synchronized void saveFiles() throws RemoteException
     {
@@ -794,70 +826,70 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I {
             System.out.println("\nError loading files.\n");
         }
     }
+    
+    public void connectDB() 
+    {
+        try 
+        {
+            Class.forName("oracle.jdbc.driver.OracleDriver");
+        } catch (ClassNotFoundException e){
+            System.out.println("[DATABASE] Oracle JDBC Driver missing!");
+            return;
+        }
+        System.out.println("[DATABASE] Oracle JDBC Driver Registered!");
+        try 
+        {
+            connection = DriverManager.getConnection(url, user, pass);
+        } catch (SQLException e) {
+            System.out.println("[DATABASE] Connection Failed! Check output console!");
+            e.printStackTrace();
+            return;
+        }
+        if (connection != null) 
+        {
+            System.out.println("[DATABASE] Database is now operational!");
+        } 
+        else 
+        {
+            System.out.println("[DATABASE] Failed to make connection!");
+        }
+    }
 
-     public static void main(String args[]){
-
-
+     public static void main(String args[])
+     {
       ///////////////////////////////////////////////////
         try {
             DataServer h = new DataServer();
+            h.connectDB();
+            /////////////////////////////////////////////////////////// 
+            /*Properties prop = new Properties();
+            InputStream input = null; 
             try {
-                h.connectDB();
-            } catch (Exception e) {
-                System.out.println("[DATABASE] Error in Constructor!");
-            }
-
-
-            ArrayList <String> cenas = new ArrayList();
-            ArrayList <String> cenas3 = new ArrayList();
-            ArrayList <AgendaItem> agenda2 = new ArrayList();
-            ArrayList <AgendaItem> agenda1 = new ArrayList();
-            ArrayList <ActionItem> actions1 = new ArrayList();
-            ArrayList <ActionItem> actions2 = new ArrayList();
-            ArrayList <KeyDecision> keys = new ArrayList();
-            ArrayList <String> chat = new ArrayList();
-            ArrayList <String> going = new ArrayList();
-
+                input = new FileInputStream("DataServer.properties");
+                // load a properties file
+                prop.load(input);
+                // get the property value and print it out
+                rmiPort=Integer.parseInt(prop.getProperty("rmiPort"));
+                name=prop.getProperty("name");    
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                } finally {
+                    if (input != null) {
+                        try {
+                            input.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+            */
+            ////////////////////////////////////////////////////////    
             
             Registry r = LocateRegistry.createRegistry(rmiPort);
-            r.rebind(name,h);
+            r.rebind(name, h);
             System.out.println("DataServer ready.");
-            } catch (Exception re) {
+            } catch (RemoteException re) {
             System.out.println("Exception in DataServer.main: " + re);
         }
-        
         ////////////////////////////////////////////////////////////////////
-         System.out.println("O SERVER ESTÀ A CORRER\n");
-
     }
-     public void connectDB(){
-         try {
-                Class.forName("oracle.jdbc.driver.OracleDriver");
-                
-            } catch (ClassNotFoundException e) {
-		System.out.println("[DATABASE] Oracle JDBC Driver missing!");
-                return;
-            }
-		
-	System.out.println("[DATABASE] Oracle JDBC Driver Registered!");
-		
-	try {
-        connection = DriverManager.getConnection(url, user, pass);
-            } catch (SQLException e) {
-		System.out.println("[DATABASE] Connection Failed! Check output console!");
-		e.printStackTrace();
-		return;
-            }
- 
-	if (connection != null) {
-            System.out.println("[DATABASE] Database is now operational!");
-	}
-		
-	else {
-            System.out.println("[DATABASE] Failed to make connection!");
-	}
-         
-         
-     }
-    
 }

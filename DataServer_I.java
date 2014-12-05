@@ -1,14 +1,16 @@
-
-
 import java.rmi.*;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
 import java.util.*;
-
+import java.io.*;
+import java.sql.SQLException;
 
 public interface DataServer_I extends Remote {
     
-    public  int checkUser(String username) throws java.rmi.RemoteException;
-    public  int addUser(String name,String username,String pass,String job) throws java.rmi.RemoteException;
-    public  int addMeeting(String title, String desiredOutCome, Date date,ArrayList<AgendaItem> agendaItems,ArrayList <String> users,String leader,String location,ArrayList <String> going) throws java.rmi.RemoteException;
+    public int checkUser(String username) throws java.rmi.RemoteException;
+    public int addUser(String name,String username,String pass,String job) throws java.rmi.RemoteException;
+    public int addMeeting(String title, String desiredOutCome, Date date,String leader,String location) throws java.rmi.RemoteException;
+    public int addUserMeeting(int idUser,int idMeeting,int going) throws java.rmi.RemoteException;
     public ArrayList <Meeting> listMeetings(String username) throws java.rmi.RemoteException;
     public  Meeting searchMeeting(String title,String username) throws java.rmi.RemoteException;
     public  ArrayList <ActionItem> searchActions(String username) throws java.rmi.RemoteException;
@@ -36,5 +38,7 @@ public interface DataServer_I extends Remote {
     public  void removeUnseen(String username,String title, Date date, String agendaTitle) throws java.rmi.RemoteException;
     public  int dummyMethod() throws java.rmi.RemoteException; 
     public int checkMeeting(String title,Date date) throws java.rmi.RemoteException;
-   
+    public void connectDB() throws java.rmi.RemoteException;
+    public int getTotalUsers() throws RemoteException,SQLException;
+
 }
