@@ -1,7 +1,6 @@
 
 import java.util.*;
 import java.io.Serializable;
-import java.net.Socket;
 import java.io.*;
 
 public class ChatUser implements Serializable 

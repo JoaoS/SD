@@ -4,9 +4,6 @@ import java.net.*;
 import java.io.*;
 import java.util.*;
 import java.rmi.*;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.rmi.server.*;
 import java.text.SimpleDateFormat;
 import java.text.ParseException;
 
@@ -15,21 +12,15 @@ public class TCPServer  {
  
     public static DataServer_I h;
     public static ArrayList<Connection> lista =new ArrayList<Connection>();
-   
-    public static   int clientPort;
-    public static   int udpPort;
-       
+    public static   int clientPort=6000;
+    public static   int udpPort=7000;      
     public static   String hostname="localhost";
-    public static   int servernumber;
-       
-    public static   String firstIP;
-    public static   String secondIP;    
+    public static   String firstIP="127.0.0.1";
+    public static   String secondIP="127.0.0.1";    
     public static   String pingIP;
-       
-    public static   String rmiName;
-    public static   String rmiIp;
-    public static   int rmiPort;
-       
+    public static   String rmiName="interface";
+    public static   String rmiIp="127.0.0.1";
+    public static   int rmiPort=5000;  
     public static   int WAIT=500; //milisseconds response thread wait
  
  
@@ -38,7 +29,7 @@ public class TCPServer  {
              
            
     //load default values////////////////////////////////////////////////////////////////////////
-    Properties prop = new Properties();
+    /*Properties prop = new Properties();
     InputStream input = null;
  
      try {
@@ -67,13 +58,12 @@ public class TCPServer  {
                 }
             }
         }
- 
+ */
       //h = (DataServer_I)LocateRegistry.getRegistry(rmiPort).lookup(rmiName);
         //////////////    RMI Connection         ////////////////////////////////////////////////////////
         try {
-            System.getProperties().put("java.security.policy", "policy.all");
-            System.setSecurityManager(new RMISecurityManager());
-             
+            //System.getProperties().put("java.security.policy", "policy.all");
+           // System.setSecurityManager(new RMISecurityManager());
            
             h = (DataServer_I)Naming.lookup("rmi://"+rmiIp+":"+rmiPort+"/"+rmiName);  
             } catch (Exception e) {
@@ -178,7 +168,8 @@ public class TCPServer  {
  
 }
     
-class Extra extends Thread{//will handle backup as a client(primary) or server(secundary)
+class Extra extends Thread
+{//will handle backup as a client(primary) or server(secundary)
        
     int serverPort;
     //String hst="localhost";
@@ -347,9 +338,9 @@ class Connection extends Thread {
             try{ 
                 check = h.checkUserPass(name,pass);         
            } catch (RemoteException e) {    
-            restartRmi();
+                restartRmi();
            }
-            check = h.checkUserPass(name,pass);
+
             if(check ==0)
             {
                 out.writeUTF("\nWrong username or password.\n");
@@ -399,9 +390,8 @@ class Connection extends Thread {
     }
 
 
-    public void register() throws IOException                                                               
-    {                                                                               
-        
+    public void register() throws IOException
+    {
         int check=0,checkAdd = 0;
         String ini="\n-------------------MENU register-----------------\n";
         out.writeUTF(ini);
@@ -415,23 +405,27 @@ class Connection extends Thread {
             out.writeUTF("\nJob title:\n");
             String job =in.readUTF();
             try{
-                 check = h.checkUser(username);
+                check = h.checkUser(username);
             } catch (RemoteException e) {
-                restartRmi();   
+                restartRmi();
+                check = h.checkUser(username);
             }
-            check = h.checkUser(username);
             if(check == 1)
             {
                 out.writeUTF("\nThis username already exists. Try a different one.\n");
             }
+            else if(check == -1)
+            {
+                out.writeUTF("\nSome error occurred, please try again.\n");
+            }
             else
             {
                 try{
-                     checkAdd = h.addUser(name,username,pass,job);
-                } catch (RemoteException e) {    
-                 restartRmi();
+                    checkAdd = h.addUser(name,username,pass,job);
+                } catch (RemoteException e) {
+                    restartRmi();
+                    checkAdd = h.addUser(name,username,pass,job);
                 }
-                checkAdd = h.addUser(name,username,pass,job);
                 if(checkAdd ==0)
                 {
                     out.writeUTF("\nOcurred an error registering, please try again.\n");

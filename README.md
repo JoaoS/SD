@@ -1,4 +1,0 @@
-SD
-==
-
-Meeto with database
