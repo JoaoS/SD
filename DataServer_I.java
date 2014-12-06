@@ -12,13 +12,12 @@ public interface DataServer_I extends Remote {
     public int addMeeting(String title, String desiredOutCome, Date date,String leader,String location) throws java.rmi.RemoteException;
     public int addUserMeeting(int idUser,int idMeeting,int going) throws java.rmi.RemoteException;
     public int addAgendaItem(int idMeeting,String agendaTitle) throws java.rmi.RemoteException;
-    public ArrayList<String> listMeetings(String username) throws java.rmi.RemoteException;
-    public  ArrayList<Integer> searchMeeting(String title,String username) throws java.rmi.RemoteException;
+        public ArrayList<String> listMeetings(int idUser, int flag) throws java.rmi.RemoteException;
+    public  String searchMeeting(int idMeeting) throws java.rmi.RemoteException;
     public String searchActions(String username) throws java.rmi.RemoteException;
     public int markAction(int id_action,int idUser) throws java.rmi.RemoteException;
-    public  int checkMeeting(String title,String desiredOutCome,Date date, String location) throws java.rmi.RemoteException;
     public int checkUserPass(String username,String password) throws java.rmi.RemoteException;
-    public int acceptInvitation(String username,String title,Date date) throws java.rmi.RemoteException;
+    public int acceptInvitation(String username, int id_meet) throws java.rmi.RemoteException;
     public  ArrayList <String> showNewInvitations(String username) throws java.rmi.RemoteException;
     public  ArrayList <String> getInvitedUsers(String title,Date date) throws java.rmi.RemoteException;
     public  int updateInvitedUsers(String title,Date date,ArrayList <String> invited) throws java.rmi.RemoteException;
@@ -38,7 +37,7 @@ public interface DataServer_I extends Remote {
     public void unseenUsers(ArrayList <String> seen,String meetingTitle, Date meetingDate, String agendaTitle) throws java.rmi.RemoteException;
     public  void removeUnseen(String username,String title, Date date, String agendaTitle) throws java.rmi.RemoteException;
     public  int dummyMethod() throws java.rmi.RemoteException; 
-    public int checkMeeting(String title,Date date) throws java.rmi.RemoteException;
+    public int checkMeeting(int idMeeting) throws java.rmi.RemoteException;
     public void connectDB() throws java.rmi.RemoteException;
     public int getTotalUsers() throws java.rmi.RemoteException,SQLException;
     public int getTotalMeetings() throws java.rmi.RemoteException,SQLException;

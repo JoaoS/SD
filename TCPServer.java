@@ -678,23 +678,13 @@ class Connection extends Thread {
     // ponto 3 do menu secundario 
     public void viewMeeting() throws RemoteException,IOException
     {
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        Meeting aux = null;
-        try{
-            aux = h.searchMeeting(title,name);        
-           } catch (RemoteException e) {    
-            restartRmi();
-        }
-        aux = h.searchMeeting(title,name);
-        if(aux != null)
-        {
-            out.writeUTF(aux.toString());
-        }
-        else
-        {
-            out.writeUTF("\nMeeting does not exist for this user.\n");
-        }
+        listMeetings();
+        out.writeUTF("\nId of the meeting that you want to view information:\n");
+        String id =in.readUTF();
+        int idMeeting = Integer.parseInt(id);
+        String aux;
+        aux = h.searchMeeting(idMeeting);
+        System.out.println(aux);
     }
 
     
@@ -725,31 +715,11 @@ class Connection extends Thread {
     // Ponto 6 do menu secundário
     public void listMeetings() throws RemoteException,IOException                                                                                                     
     {                                                                                                               
-        ArrayList <Meeting> aux=null;
-        try{    
-            aux=h.listMeetings(name);                    
-           }catch (RemoteException e){    
-              restartRmi();
-           } 
-        if(aux != null)   
+        ArrayList <String> meetings = new ArrayList <String>();
+        meetings = h.listMeetings(myIdUser,0);
+        for(int i=0;i<meetings.size();i++)
         {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-            Date current = new Date();
-            for(int i =0;i<aux.size();i++)
-            {
-                if(current.before(aux.get(i).getDate()))
-                {
-                    out.writeUTF("\n\nTitle : " + aux.get(i).getTitle() + " Date : " + formatter.format(aux.get(i).getDate()) + "\n");
-                }
-            }
-            if(aux.isEmpty())
-            {
-                out.writeUTF("\nYou have no meetings.\n");
-            }
-        }
-        else
-        {
-            out.writeUTF("\nYou have no meetings.\n");
+            System.out.println(meetings.get(i));
         }
     }
 
@@ -1588,33 +1558,19 @@ class Connection extends Thread {
         String toDo = "";  
         int checkKeys =0;
         int changes = 0;
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
-            {
-                oldDate = formatter.parse(data);
-                if(oldDate.before(current) || oldDate.equals(current))
-                {
-                    out.writeUTF("\nDate belongs to the past.\n");
-                    checkData = 0;
-                }
-                else
-                {
-                    checkData =1;
-                }
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
-            }
-        }
+        int idMeeting = 0;
+        
         try
         {
-            if(h.checkMeeting(oldTitle,oldDate)==0)
+            idMeeting = h.checkMeeting(idMeeting);
+            if(idMeeting==0)
             {
                 out.writeUTF("\nThis meeting does not exist.\n");
+                return;
+            }
+            else if(idMeeting==-1)
+            {
+                out.writeUTF("\nSome error occured, please try again.\n");
                 return;
             }
             if(h.checkMeetingLeader(oldTitle,oldDate,name) ==0)
