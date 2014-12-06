@@ -385,7 +385,9 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     {
         ResultSet rt;
         try
-        {    rt = connection.createStatement().executeQuery("SELECT id_meeting FROM MEETING WHERE id_meeting = " + idMeeting);
+        {   
+            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
+            rt = connection.createStatement().executeQuery("SELECT id_meeting FROM MEETING WHERE id_meeting = " + idMeeting);
             if(rt.next())
             {
                 return rt.getInt(1);
@@ -401,227 +403,187 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     }
 
     
-/*
-*
-* aceita convite da reunião 
-*/
     
-    
-    public synchronized int acceptInvitation(String username, int id_meet) throws RemoteException
+    public int checkMeeting(String title,Date date, String location) throws RemoteException
     {
-
-        int id=0;
-        ResultSet rt = null;
-        ArrayList<Integer>   meetings=new ArrayList<Integer>();
-
-        try {
-            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
-            rt = connection.createStatement().executeQuery("SELECT ID_USER FROM USERS WHERE USERNAME = '" + username + "'");
-            connection.commit();
-
-            if (rt.next()) {
-                id = rt.getInt(1);
-            }
-
-            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
-            rt = connection.createStatement().executeQuery("update user_meeting set going=1 where id_user="+id+" and " +
-                    " id_meeting="+id_meet);
-            connection.commit();
-
-            while (rt.next()) {
-                int aux =rt.getInt(1);
-                meetings.add(aux);
+        ResultSet rt;
+        java.sql.Date sqlDate = new java.sql.Date(date.getTime());
+        try
+        {   connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
+            rt = connection.createStatement().executeQuery("SELECT id_meeting FROM MEETING WHERE title = '" + title + "' AND dat = " + sqlDate + "AND location = '" + location + "'");
+            if(rt.next())
+            {
+                return 1;
             }
         }
-        catch(Exception e){
-            System.out.println("\nException at list meetings.\n");
+        catch(Exception  e)
+        {
+            System.out.println("\nException at line 421.\n");
+            e.printStackTrace();
+            return -1;
+        }
+        return 0;
+    }
+    
+    
+    
+    /*
+    *
+    * aceita convite da reunião metendo  going a 1
+    */
+    
+    public int acceptInvitation(int idUser,int cancel_id) throws RemoteException
+    {
+        ResultSet rt = null;
+        try {
+            rt = connection.createStatement().executeQuery("UPDATE user_meeting SET going = 1 WHERE id_meeting = " + cancel_id +
+                    " AND  id_user = " + idUser);
+            connection.commit();
+        }catch(Exception e){
+            System.out.println("\nException at acceptInvitation.\n");
             e.printStackTrace();
         }
         return 0;
     }
-
-    public synchronized int declineInvitation(String username,String title,Date date) throws RemoteException
+ 
+    /*
+     *
+     *   recusa convite com -1, ainda é necessario alterar integridade nas tabelas
+     */
+    
+    public int declineInvitation(int idUser, int cancel_id) throws RemoteException 
     {
-        try
-        {
-            for(int i=0;i<meetings.size();i++)
-            {
-                if(meetings.get(i).getTitle().equals(title) && meetings.get(i).getDate().equals(date))
-                {
-                    if(meetings.get(i).getInvited().contains(username))
-                    {
-                        meetings.get(i).getInvited().remove(username);
-                        saveFiles();
-                        return 1;
-                    }
-                }
-            }   
-            return 0;
-        }catch(Exception e)
-        {
-            System.out.println("\nException at line 301.\n");
-            return 0; 
+        int id = 0;
+        ResultSet rt = null;
+        try {
+
+            rt = connection.createStatement().executeQuery("UPDATE user_meeting SET going = -1 WHERE id_meeting = " + cancel_id
+                    + " AND  id_user = " + idUser);
+            connection.commit();
+
+        } catch (Exception e) {
+            System.out.println("\nException at declineInvitation.\n");
+            e.printStackTrace();
+
         }
+        return 0;
     }
 
 
-    public synchronized ArrayList <String> showNewInvitations(String username) throws RemoteException
+    public String showNewInvitations(int idUser) throws RemoteException
     {
-        ArrayList <String> newInvitations = new ArrayList();
+        ResultSet rt=null;
+        String aux="";
         try
         {
-            ArrayList <String> going = new ArrayList();
-            ArrayList <String> invited = new ArrayList();
-            for(int i=0;i<meetings.size();i++)
+            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
+            rt = connection.createStatement().executeQuery("SELECT me.id_meeting,me.title, me.dat,me.location FROM MEETING me,USER_MEETING us WHERE us.id_user = " + idUser + "AND us.id_meeting = me.id_meeting"
+                    + "AND us.going = 0");
+            connection.commit();
+            while(rt.next())
             {
-                invited = meetings.get(i).getInvited();
-                going = meetings.get(i).getGoing();
-                if(invited.contains(username))
-                {
-                    if(going.contains(username) == false)
-                    {
-                        newInvitations.add(meetings.get(i).getTitle());
-                    }
-                }
+                aux += "\nMeeting ID :" + rt.getInt(1) + "Title:" + rt.getString(2) + " Date:" + rt.getDate(3) + " Location :" + rt.getString(4)+"\n";
             }
-            return newInvitations;
-        }catch(Exception e)
-        {
-            System.out.println("\nException at line 329.\n");
-            return newInvitations;
         }
+        catch(Exception  e)
+        {
+            System.out.println("\nException at line 508.\n");
+            e.printStackTrace();
+            return null;
+        }
+        return aux;
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// EU
 
-    public synchronized ArrayList <String> getInvitedUsers(String title,Date date) throws RemoteException
+    public int isInvited(int idUser,int idMeeting) throws RemoteException
     {
-        ArrayList <String> aux = new ArrayList <String>();
+        ResultSet rt=null;
+        String aux="";
         try
         {
-            for(int i=0;i<meetings.size();i++)
-            {
-                if(meetings.get(i).getTitle().equals(title) && meetings.get(i).getDate().equals(date))
-                {
-                    aux = meetings.get(i).getInvited();
-                }
-            }
-            return aux;
-        }catch(Exception e)
-        {
-            System.out.println("\nException at line 350.\n");
-            return aux;
-        }
-    }
-
-
-    public synchronized int updateInvitedUsers(String title,Date date,ArrayList <String> invited) throws RemoteException
-    {
-        try
-        {   
-            for(int i=0;i<meetings.size();i++)
-            {
-                if(meetings.get(i).getTitle().equals(title) && meetings.get(i).getDate().equals(date))
-                {
-                    meetings.get(i).setInvited(invited);
-                    saveFiles();
-                    return 1;
-                }
-            }
-            return 0;
-        }catch(Exception e)
-        {
-            System.out.println("\nException at line 372.\n");
-            return 0;
-        }
-    }
-
-    public synchronized int checkMeetingLeader(String title,Date date,String username) throws RemoteException
-    {
-        try
-        {
-            for(int i=0;i<meetings.size();i++)
-            {
-                if(meetings.get(i).getTitle().equals(title)  && meetings.get(i).getDate().equals(date) && meetings.get(i).getLeader().equals(username))
-                {
-                    return 1;
-                }
-            }
-            return 0;
-        }catch(Exception e)
-        {
-            System.out.println("\nException at line 391.\n");
-            return 0;
-        }
-    }
-
-    public synchronized int checkMeetingInvited(String title,Date date,String username) throws RemoteException
-    {
-        try
-        {
-            ArrayList <String> aux = new ArrayList();
-            for(int i=0;i<meetings.size();i++)
-            {
-                if(meetings.get(i).getTitle().equals(title) && meetings.get(i).getDate().equals(date))
-                {
-                    aux = meetings.get(i).getInvited();
-                }
-            }
-            if(aux != null && aux.contains(username))
+            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
+            rt = connection.createStatement().executeQuery("SELECT id_user FROM USER_MEETING where id_user = " + idUser + "AND id_meeting = " + idMeeting);
+            connection.commit();
+            if(rt.next())
             {
                 return 1;
             }
-            else
-            {
-                return 0;
-            }
-        }catch(Exception e)
-        {
-            System.out.println("\nException at line 418.\n");
-            return 0;
         }
+        catch(Exception  e)
+        {
+            System.out.println("\nException at line 533.\n");
+            e.printStackTrace();
+            return -1;
+        }
+        return 0;
     }
 
 
-    public synchronized ArrayList <AgendaItem> getAgenda(String title,Date date) throws RemoteException
+
+    public int checkMeetingLeader(int idMeeting,String username) throws RemoteException
     {
-        ArrayList <AgendaItem> aux = new ArrayList();
+        ResultSet rt=null;
+        String aux="";
         try
         {
-            for(int i=0;i<meetings.size();i++)
+            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
+            rt = connection.createStatement().executeQuery("SELECT id_meeting FROM MEETING WHERE id_meeting= " + idMeeting + "AND leader = '"+ username +"'");
+            connection.commit();
+            if(rt.next())
             {
-                if(meetings.get(i).getTitle().equals(title) && meetings.get(i).getDate().equals(date))
-                {
-                    aux = meetings.get(i).getAgendaItems();
-                }
+                return 1;
             }
-            return aux;
-        }catch(Exception e)
-        {
-            System.out.println("\nException at line 439.\n");
-            return aux;
         }
+        catch(Exception  e)
+        {
+            System.out.println("\nException at line 578.\n");
+            e.printStackTrace();
+            return -1;
+        }
+        return 0;
     }
 
 
-    public synchronized int updateAgenda(String title,Date date,ArrayList <AgendaItem> agenda) throws RemoteException
+    public ArrayList <String> getAgenda(int idMeeting) throws RemoteException
     {
-        try
-        {  
-            for(int i=0;i<meetings.size();i++)
-            {
-                if(meetings.get(i).getTitle().equals(title) && meetings.get(i).getDate().equals(date))
-                {
-                    meetings.get(i).setAgendaItems(agenda);
-                    saveFiles();
-                    return 1;
-                }
-            }
-            return 0;
-        }catch(Exception e)
+        ArrayList <String> aux = new ArrayList<String>();
+        ResultSet rt = null;
+        try 
         {
-            System.out.println("\nException at line 461.\n");
+            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
+            rt = connection.createStatement().executeQuery("SELECT title FROM AGENDA_ITEM WHERE id_meeting =  " + idMeeting);
+            connection.commit();
+            while(rt.next())
+            {
+                aux.add(rt.getString(1));
+            }
+        }
+        catch(Exception e)
+        {
+            System.out.println("\nException at line 564.\n");
+            e.printStackTrace();
+            return null;
+        }
+        return aux;
+    }
+
+    
+    public int updateAgenda(int idMeeting,String oldTitle,String newTitle) throws RemoteException
+    {
+        ResultSet rt;
+        try
+        {    
+            rt = connection.createStatement().executeQuery("UPDATE AGENDA_ITEM SET title = '"+ newTitle + "' WHERE id_meeting = " + idMeeting + "AND title = '" + oldTitle + "'");
+            connection.commit();
+        }
+        catch(Exception e)
+        {
+            System.out.println("\nException at line 582.\n");
+            e.printStackTrace();
             return 0;
         }
+        return 1;
     }
 
 
@@ -652,6 +614,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         }
     }
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// FIM DE EU
 
     public synchronized int updateMeeting(String oldTitle,Date oldDate,String newDesiredOutcome,Date newDate,String newLeader,String newLocation) throws RemoteException
     {
@@ -688,48 +651,45 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         }
     }
 
-
-    public synchronized int closeAgendaMeeting(String title,Date date) throws RemoteException
+    public int closeAgendaMeeting(int idMeeting) throws RemoteException
     {
+        ResultSet rt;
         try
+        {    
+            rt = connection.createStatement().executeQuery("UPDATE MEETING SET closed = 1 where id_meeting  = " + idMeeting);
+            connection.commit();
+        }
+        catch(Exception e)
         {
-            for(int i=0;i<meetings.size();i++)
-            {
-                if(meetings.get(i).getTitle().equals(title) && meetings.get(i).getDate().equals(date))
-                {
-                    meetings.get(i).setClosed(true);
-                    saveFiles();
-                }
-            }
-            return 1;
-        }catch(Exception e)
-        {
-            System.out.println("\nException at line 546.\n");
+            System.out.println("\nException at line 693.\n");
+            e.printStackTrace();
             return 0;
         }
+        return 1;
     }
 
 
-    public synchronized int checkAgendaClosed(String title,Date date) throws RemoteException
+    public int checkAgendaClosed(int idMeeting) throws RemoteException
     {
+        ResultSet rt=null;
+        String aux="";
         try
         {
-            for(int i=0;i<meetings.size();i++)
+            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
+            rt = connection.createStatement().executeQuery("SELECT closed from MEETING where id_meeting = "+ idMeeting);
+            connection.commit();
+            if(rt.next())
             {
-                if(meetings.get(i).getTitle().equals(title) && meetings.get(i).getDate().equals(date))
-                {
-                    if(meetings.get(i).isClosed() == true)
-                    {
-                        return 1;
-                    }
-                }   
+                return rt.getInt(1);
             }
-            return 0; 
-        }catch(Exception e)
-        {
-            System.out.println("\nException at line 569.\n");
-            return 0;
         }
+        catch(Exception  e)
+        {
+            System.out.println("\nException at line 533.\n");
+            e.printStackTrace();
+            return -1;
+        }
+        return 1;
     }
 
 

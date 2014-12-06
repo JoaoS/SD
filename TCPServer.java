@@ -491,7 +491,7 @@ class Connection extends Thread {
                     break;
                 case 6:
                     check = 6;
-                    listMeetings();
+                    listMeetings(0);
                     break;
                 case 7:
                     check = 7;
@@ -552,7 +552,7 @@ class Connection extends Thread {
         String title =in.readUTF();
         out.writeUTF("\nDesired outcome:\n");
         String outcome =in.readUTF();
-        int idMeeting = 0,idUser=0;
+        int idMeeting = 0,idUser=0,check;
         while(checkData !=1)
         {   
             out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
@@ -572,9 +572,15 @@ class Connection extends Thread {
         // add meeting to meeting table at database
         try
         {    
-            if(h.checkMeeting(title,outcome,date,location) == 1)
+            check = h.checkMeeting(title,date,location);
+            if(check ==1)
             {
                 out.writeUTF("\nA meeting with this parameters already exists.\n");
+                return;
+            }
+            else if(check == -1)
+            {
+                out.writeUTF("\nSome error occurred, please try again.\n");
                 return;
             }
             else
@@ -678,7 +684,7 @@ class Connection extends Thread {
     // ponto 3 do menu secundario 
     public void viewMeeting() throws RemoteException,IOException
     {
-        listMeetings();
+        listMeetings(0);
         out.writeUTF("\nId of the meeting that you want to view information:\n");
         String id =in.readUTF();
         int idMeeting = Integer.parseInt(id);
@@ -713,139 +719,69 @@ class Connection extends Thread {
 
 
     // Ponto 6 do menu secundário
-    public void listMeetings() throws RemoteException,IOException                                                                                                     
+    public void listMeetings(int flag) throws RemoteException,IOException                                                                                                     
     {                                                                                                               
         ArrayList <String> meetings = new ArrayList <String>();
-        meetings = h.listMeetings(myIdUser,0);
+        meetings = h.listMeetings(myIdUser,flag);
         for(int i=0;i<meetings.size();i++)
         {
             System.out.println(meetings.get(i));
         }
     }
 
-    //ponto 7 do menu secundrio
-
+/*
+*ponto 7 do menu secundario aceita convites com 1
+* 
+ */
     public void acceptInvitation() throws RemoteException,IOException                                                    
-    {                                                                                                                                                           
-        out.writeUTF("\nInsert parameters of the meeting invitation that you want to accept : \n\n");               
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        int checkData= 0;
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
+    {
+        out.writeUTF("\nUpcomming meetings: \n\n");
         Date date = new Date();
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
+        ArrayList<String> aux;
+        //lists all upcomming meetings, given by flag=1
+        try{
+ 
+            aux=h.listMeetings(myIdUser,1);
+            for(int i=0;i<aux.size();i++)
             {
-                date = formatter.parse(data);
-                if(date.before(current) || date.equals(current))
-                {
-                    out.writeUTF("\nDate belongs to the past.\n");
-                    checkData = 0;
-                }
-                else
-                {
-                    checkData =1;
-                }
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
+                out.writeUTF(aux.get(i));
             }
-        }
-        try{    
-                if(h.checkMeetingInvited(title,date,name) ==0)
-                {
-                    out.writeUTF("\nThis meeting does not exist or you are not invited.\n");
-                }
-                else if(h.checkMeetingLeader(title,date,name) ==1)
-                {
-                    out.writeUTF("\nYou are the leader of this meeting.\n");
-                }
-                else if(h.checkMeetingGoing(title,date,name)==1)
-                {
-                    out.writeUTF("\nYou already accepted this meeting invitation.\n");
-                }
-                else
-                {
-                    if(h.acceptInvitation(name,title,date)==1)
-                    {
-                        out.writeUTF("\nInvitation accepted.\n ");
-                    }
-                    else
-                    {
-                        out.writeUTF("\nAn error occurred, try again.\n ");
-                    } 
-                }                   
-           } catch (RemoteException e){    
+ 
+            out.writeUTF("\nSelect the id of the meeting you wish to accept: \n\n");
+            //ask user meeting id to decline
+            String answer=in.readUTF();
+            int accept_id=Integer.parseInt(answer);
+            int check=h.acceptInvitation(myIdUser,accept_id);
+ 
+        } catch (RemoteException e) {
             restartRmi();
-           } 
+        }
     }
 
-    // ponto 8 do menu secundario
-
+    /*
+    *ponto 8 do menu secundario, recusa convites com -1
+    */
+ 
     public void declineInvitation() throws RemoteException,IOException
     {
-        out.writeUTF("\nInsert parameters of the meeting invitation that you want to decline : \n\n");               
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        int checkData= 0;
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
+        out.writeUTF("\nUpcomming meetings: \n\n");
         Date date = new Date();
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
-            {
-                date = formatter.parse(data);
-                if(date.before(current) || date.equals(current))
-                {
-                    out.writeUTF("\nDate belongs to the past.\n");
-                    checkData = 0;
-                }
-                else
-                {
-                    checkData =1;
-                }
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
-            }
-        }
+        ArrayList<String> aux;
+        //lists all upcomming meetings, given by flag=1
         try{
-            
-            if(h.checkMeetingInvited(title,date,name) ==0)
+            aux=h.listMeetings(myIdUser,1);
+            for(int i=0;i<aux.size();i++)
             {
-                out.writeUTF("\nThis meeting does not exist, you are not invited or you have already declined.\n");
+              out.writeUTF(aux.get(i));
             }
-            else if(h.checkMeetingLeader(title,date,name) ==1)
-            {
-                out.writeUTF("\nYou are the leader of this meeting.\n");
-            }
-            else if(h.checkMeetingGoing(title,date,name)==1)
-            {
-                out.writeUTF("\nYou already accepted this meeting invitation.\n");
-            }
-            else
-            {
-                if(h.declineInvitation(name,title,date)==1)
-                {
-                    out.writeUTF("\nInvitation declined.\n "); 
-                }
-                else
-                {
-                   out.writeUTF("\nAn error ocurred, please try again.\n "); 
-                }
-            }
-       } catch (RemoteException e) {
-        restartRmi();
-       }
+            out.writeUTF("\nSelect the id of the meeting you wish to cancel: \n\n");
+            //ask user meeting id to decline
+            String answer=in.readUTF();
+            int cancel_id=Integer.parseInt(answer);
+            int check = h.declineInvitation(myIdUser,cancel_id);
+        } catch (RemoteException e) {
+            restartRmi();
+        }
     }
 
 
@@ -855,22 +791,8 @@ class Connection extends Thread {
     {
         String ini="\n-------------------New invitations-----------------\n";
         out.writeUTF(ini);
-        ArrayList <String> aux = h.showNewInvitations(name);
-        if(aux != null)
-        {
-            for(int i=0;i<aux.size();i++)
-            {
-                out.writeUTF("\nYou were invited to the meeting : " + aux.get(i) + "\n");
-            }
-            if(aux.isEmpty())
-            {
-                out.writeUTF("\nYou do not have new invitations.\n");
-            }
-        }
-        else
-        {
-            out.writeUTF("\nYou do not have new invitations.\n");
-        }
+        String aux = h.showNewInvitations(myIdUser);
+        System.out.println(aux);
     }
 
 
@@ -942,49 +864,22 @@ class Connection extends Thread {
 
 
     public void inviteUsers() throws RemoteException,IOException                        
-    {                                                                                                       
-        out.writeUTF("\nInsert parameters of the meeting that you want to invite : \n\n");
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        int checkData= 0,checkUser=0;
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
-        Date date = new Date();
-        String username;
-        ArrayList <String> invited= new ArrayList <String>();
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
-            {
-                date = formatter.parse(data);
-                if(date.before(current) || date.equals(current))
-                {
-                    out.writeUTF("\nDate belongs to the past.\n");
-                    checkData = 0;
-                }
-                else
-                {
-                    checkData =1;
-                }
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
-            }
-        }
+    {   
+        String username;              
+        // show upcoming meetings
+        listMeetings(1);
+        out.writeUTF("ID of the meeting that you want to invite Users : ");
+        String id = in.readUTF();
+        int idMeeting = Integer.parseInt(id);
         try{
-            if(h.checkMeetingLeader(title,date,name) ==0)
+            if(h.checkMeetingLeader(idMeeting,name) ==0)
             {
                 out.writeUTF("\nA meeting with this parameters do not exists or you are not the leader.\n");
                 return;
             }
-            invited = h.getInvitedUsers(title,date);
           } catch (RemoteException e) {
            restartRmi();
           }
-  
         out.writeUTF("\nChoose users by username to be invited(Insert 0 to stop) : \n");                                          
         while(true)
         {
@@ -994,28 +889,15 @@ class Connection extends Thread {
             {
                 break;
             }
-            if(invited == null)    
+            if(h.isInvited(myIdUser, idMeeting)==0)
             {
-                invited = new ArrayList <String>();
-                invited.add(name);
-            }
-            for(int i=0;i<invited.size();i++)
-            {
-                if(invited.get(i).equals(username))
-                {
-                    out.writeUTF("\nUser " + username + " is already invited.");
-                    checkUser = 1;
-                }
-            }
-            if(checkUser ==1)
-            {
-                checkUser = 0;
+                out.writeUTF("\nThis user is already invited.\n");
                 continue;
             }
             try{
                 if(h.checkUser(username) == 1)                                                                                      
                 {
-                    invited.add(username);
+                    h.addUserMeeting(myIdUser, idMeeting, 0);
                     out.writeUTF("\nUser sucessfully invited.\n");
                 }
                 else
@@ -1026,69 +908,31 @@ class Connection extends Thread {
                restartRmi();
               }
         }
-        try{
-            if(h.updateInvitedUsers(title,date,invited) ==1)
-            {
-                ;
-            }
-            else
-            {
-                out.writeUTF("\nAn error occurred, try again.\n");
-            }
-          } catch (RemoteException e) {
-           restartRmi();
-          }
     }
 
-
+    // FALTA PROTECÇÃO SE AGENDA ITEM JA EXISTE, SE MEETING EXISTE
     public void addAgendaItem() throws RemoteException,IOException
     {
-        out.writeUTF("\nInsert parameters of the meeting that you want to edit the agenda : \n\n");
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        int checkData= 0,checkUser=0,checkAgenda=0;
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
-        Date date = new Date();
-        String username,agendaTitle;
-        ArrayList <AgendaItem> agendaItems = new ArrayList<AgendaItem>();                  
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
-            {
-                date = formatter.parse(data);
-                if(date.before(current) || date.equals(current))
-                {
-                    out.writeUTF("\nDate belongs to the past.\n");
-                    checkData = 0;
-                }
-                else
-                {
-                    checkData =1;
-                }
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
-            }
-        }
-        
+        String agendaTitle;
+        // show upcoming meetings
+        listMeetings(1);
+        out.writeUTF("ID of the meeting that you want to add agenda items : ");
+        String id = in.readUTF();
+        int idMeeting = Integer.parseInt(id);
+        int checkAdd;
         try{
-            if(h.checkAgendaClosed(title,date)==1)
+            if(h.checkAgendaClosed(idMeeting)==1)
             {
                 out.writeUTF("\nThe agenda for this meeting is closed or this meeting does not exist.\n");
                 return;
             }
-            if(h.checkMeetingInvited(title,date,name) ==0)
+            if(h.isInvited(myIdUser,idMeeting) ==0)
             {
-                out.writeUTF("\nA meeting with this parameters do not exists or you are not invited\n");
+                out.writeUTF("\nYou are not invited to this meeting.\n");
                 return;
             }
             else
             {
-                agendaItems = h.getAgenda(title,date);
                 out.writeUTF("\nItems to be added to the meeting agenda(Insert 0 to stop) : \n");
                 while(true)
                 {
@@ -1103,32 +947,16 @@ class Connection extends Thread {
                         out.writeUTF("\nThis agenda item already exists.\n");
                         continue;
                     }
-                    if(agendaItems !=null)
+                    //FALTA ------------------> check if an agenda item already exists
+                    checkAdd = h.addAgendaItem(idMeeting,agendaTitle);
+                    if(checkAdd ==1)
                     {
-                        for(int i=0;i<agendaItems.size();i++)
-                        {
-                            if(agendaItems.get(i).getTitle().equalsIgnoreCase(agendaTitle))
-                            {
-                                out.writeUTF("\nThis agenda item already exists.\n");
-                                checkAgenda = 1;
-                            }
-                        }
+                        out.writeUTF("\nAgenda item successfully added.\n");
                     }
-                    if(checkAgenda ==1)
+                    else
                     {
-                        checkAgenda = 0;
-                        continue;
+                        out.writeUTF("\nSome error occured, please try again.\n");
                     }
-                    AgendaItem nova = new AgendaItem(agendaTitle);
-                    agendaItems.add(nova);
-                }
-                if(h.updateAgenda(title,date,agendaItems) == 1)
-                {
-                    ;
-                }
-                else
-                {
-                    out.writeUTF("\nAn error occurred,try again.\n");
                 }
             }
       } catch (RemoteException e) {
@@ -1136,83 +964,45 @@ class Connection extends Thread {
       }   
   }
 
-
+    // FALTA PROTECÇÃO SE MEETING JÁ EXISTE
     public void modifyAgendaItem() throws RemoteException,IOException
     {
-        out.writeUTF("\nInsert parameters of the meeting that you want to modify the agenda : \n\n");
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        int checkData= 0,checkUser=0,checkAgenda=0;
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
-        Date date = new Date();
-        String username,agendaTitle;
-        ArrayList <AgendaItem> agendaItems = new ArrayList<AgendaItem>();   
-        String s;    
-        int checkAnswer = 0;
-        int indice = 0;  
-        String toDo = "";  
-        int checkKeys =0;
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
-            {
-                date = formatter.parse(data);
-                if(date.before(current) || date.equals(current))
-                {
-                    out.writeUTF("\nDate belongs to the past.\n");
-                    checkData = 0;
-                }
-                else
-                {
-                    checkData =1;
-                }
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
-            }
-        }
-        
+        String agendaTitle;
+        // show upcoming meetings
+        listMeetings(1);
+        out.writeUTF("ID of the meeting that you want to add agenda items : ");
+        String id = in.readUTF();
+        int idMeeting = Integer.parseInt(id);
+        int checkAdd,checkAnswer = 0;
+        String oldTitle = "";
+        ArrayList <String> agenda = new ArrayList <String>();
         try{
              
-             if(h.checkAgendaClosed(title,date)==1)
+             if(h.checkAgendaClosed(idMeeting)==1)
              {
-                 out.writeUTF("\nThe agenda for this meeting is closed or this meeting does not exist.\n");
+                 out.writeUTF("\nThe agenda for this meeting is closed.\n");
                  return;
              }
-             if(h.checkMeetingInvited(title,date,name) ==0)
+             if(h.isInvited(myIdUser,idMeeting) ==0)
              {
-                 out.writeUTF("\nA meeting with this parameters do not exists or you are not going to it.\n");
+                 out.writeUTF("\nYou are not invited to a meeting with that name.\n");
                  return;
              }
              else
-             {
-                 agendaItems = h.getAgenda(title,date);
-                 if(agendaItems == null)
+             {     
+                 out.writeUTF("\n\nAgenda Items: \n\n");
+                 agenda = h.getAgenda(idMeeting);
+                 for(int i=0;i<agenda.size();i++)
                  {
-                    agendaItems = new ArrayList <AgendaItem>();
-                    agendaItems.add(new AgendaItem("Any other business"));
-                 }
-                 out.writeUTF("\n\nAgenda items for the meeting " + title + ":\n\n");
-                 for(int i=0;i<agendaItems.size();i++)
-                 {
-                     out.writeUTF(i + ". "+ agendaItems.get(i).getTitle() + "\n");
+                     System.out.println("\nAgenda item : " + agenda.get(i));
                  }
                  while(checkAnswer ==0)
                  {
                     out.writeUTF("\nWhich agenda item do you want to modify the title? \n\n");
-                    String answer = in.readUTF();  
-                    for(int i=0;i<agendaItems.size();i++)
+                    oldTitle = in.readUTF();  
+                    if(agenda.contains(oldTitle))
                     {
-                        if(agendaItems.get(i).getTitle().equals(answer))
-                        {
-                            checkAnswer =1;
-                            indice = i;
-                            break;
-                        }
+                        checkAnswer = 1;
                     }
                     if(checkAnswer ==0)
                     {
@@ -1221,9 +1011,15 @@ class Connection extends Thread {
                  }
                  out.writeUTF("\nNew title:\n");
                  String newTitle =in.readUTF();
-                 agendaItems.get(indice).setTitle(newTitle);
-                 h.updateAgenda(title,date,agendaItems);
-                 out.writeUTF("\nTitle modified sucessfully.\n");
+                 // update agenda not modified yet
+                 if(h.updateAgenda(idMeeting,oldTitle,newTitle)==1)
+                 {
+                    out.writeUTF("\nTitle modified sucessfully.\n"); 
+                 }
+                 else
+                 {
+                     out.writeUTF("\nAn error occured, please try again\n"); 
+                 }
              }
               
          } catch (RemoteException e) {    
@@ -1762,45 +1558,19 @@ class Connection extends Thread {
 
     public void closeAgenda() throws RemoteException,IOException
     {
-        out.writeUTF("\nInsert parameters of the meeting that you want to edit the agenda : \n\n");
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        int checkData= 0,checkUser=0,checkAgenda=0;
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
-        Date date = new Date();
-        String username,agendaTitle;
-        ArrayList <AgendaItem> agendaItems = new ArrayList<AgendaItem>();                  
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
-            {
-                date = formatter.parse(data);
-                if(date.before(current) || date.equals(current))
-                {
-                    out.writeUTF("\nDate belongs to the past.\n");
-                    checkData = 0;
-                }
-                else
-                {
-                    checkData =1;
-                }
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
-            }
-        }
+        // show upcoming meetings
+        listMeetings(1);
+        out.writeUTF("ID of the meeting that you want to close the agenda : ");
+        String id = in.readUTF();
+        int idMeeting = Integer.parseInt(id);
         try{ 
-            if(h.checkMeetingLeader(title,date,name) ==0)
+            if(h.checkMeetingLeader(idMeeting,name) ==0)
             {
                 out.writeUTF("\nYou are not the leader of this meeting.\n");
             }
             else
             {
-                if(h.closeAgendaMeeting(title,date) == 1)
+                if(h.closeAgendaMeeting(idMeeting) == 1)
                 {
                     out.writeUTF("\n\nMeeting agenda closed sucessfully.\n\n");
                 }
