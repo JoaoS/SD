@@ -675,7 +675,7 @@ class Connection extends Thread {
     }
 
 
-    // ponto 3 do menu secundario
+    // ponto 3 do menu secundario 
     public void viewMeeting() throws RemoteException,IOException
     {
         out.writeUTF("\nTitle:\n");
@@ -701,50 +701,24 @@ class Connection extends Thread {
     //ponto 4 do menu secundario
     public void viewActions() throws RemoteException,IOException
     {                                                                                                          
-        ArrayList <ActionItem> myActions=null;
+        String myActions;
         try{
             myActions= h.searchActions(name);        
         }catch (RemoteException e) {    
             restartRmi();
-        }
-        myActions= h.searchActions(name); 
-        if(myActions != null)
-        {
-            for(int i=0;i<myActions.size();i++)
-            {
-                out.writeUTF(myActions.get(i).toString());
-            }
-            if(myActions.isEmpty())
-            {
-                out.writeUTF("\nYou have no actions.\n");
-            }      
-        }
-        else
-        {
-            out.writeUTF("\nYou have no actions.\n");
-        }
+            myActions= h.searchActions(name);
+        } 
+        System.out.println(myActions);
     }
 
-    //ponto 5 do menu secundario
+    //ponto 5 do menu secundario----------------> NAO TEM PROTECÇÃO PARA ACTION NAO EXISTENTE
     public void markAction() throws RemoteException,IOException                                               
-    {                                                                                                       
-        int check=0;
-        out.writeUTF("\nWhat action do you want to mark ?\n");
+    {       
+        searchUndoneActions();
+        out.writeUTF("\nInsert id of the action that you want to mark :\n");
         String action =in.readUTF();
-        try{          
-            check = h.markAction(action,name);                  
-        }catch (RemoteException e) {    
-            restartRmi();
-        } 
-        check = h.markAction(action,name); 
-        if(check == 1)
-        {
-            out.writeUTF("\nAction marked sucessfully.\n");
-        }
-        else
-        {
-            out.writeUTF("\nAction " + action + "does not exist for you.\n");
-        }
+        int id_action = Integer.parseInt(action);
+        h.markAction(id_action,myIdUser);
     }
 
 
@@ -1585,29 +1559,14 @@ class Connection extends Thread {
     {
         String ini="\n-------------------Undone actions-----------------\n";
         out.writeUTF(ini);
-        ArrayList <ActionItem> myActions = new ArrayList <ActionItem>();
-        try
-        {
-            myActions= h.searchUndoneActions(name);
-        }catch(RemoteException e) {
+        String myActions;
+        try{
+            myActions= h.searchUndoneActions(name);        
+        }catch (RemoteException e) {    
             restartRmi();
-        }
-        myActions= h.searchUndoneActions(name);
-        if(myActions != null)
-        {
-            for(int i=0;i<myActions.size();i++)
-            {
-                out.writeUTF(myActions.get(i).toString());
-            }
-            if(myActions.isEmpty())
-            {
-                out.writeUTF("\nYou have no undone actions.\n");
-            }
-        }
-        else
-        {
-            out.writeUTF("\nYou have no undone actions.\n");
-        }
+            myActions= h.searchUndoneActions(name);
+        } 
+        System.out.println(myActions);
     }
 
 

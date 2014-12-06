@@ -12,10 +12,10 @@ public interface DataServer_I extends Remote {
     public int addMeeting(String title, String desiredOutCome, Date date,String leader,String location) throws java.rmi.RemoteException;
     public int addUserMeeting(int idUser,int idMeeting,int going) throws java.rmi.RemoteException;
     public int addAgendaItem(int idMeeting,String agendaTitle) throws java.rmi.RemoteException;
-    public ArrayList <Meeting> listMeetings(String username) throws java.rmi.RemoteException;
-    public  Meeting searchMeeting(String title,String username) throws java.rmi.RemoteException;
-    public  ArrayList <ActionItem> searchActions(String username) throws java.rmi.RemoteException;
-    public  int markAction(String action,String username) throws java.rmi.RemoteException;
+    public ArrayList<String> listMeetings(String username) throws java.rmi.RemoteException;
+    public  ArrayList<Integer> searchMeeting(String title,String username) throws java.rmi.RemoteException;
+    public String searchActions(String username) throws java.rmi.RemoteException;
+    public int markAction(int id_action,int idUser) throws java.rmi.RemoteException;
     public  int checkMeeting(String title,String desiredOutCome,Date date, String location) throws java.rmi.RemoteException;
     public int checkUserPass(String username,String password) throws java.rmi.RemoteException;
     public int acceptInvitation(String username,String title,Date date) throws java.rmi.RemoteException;
@@ -27,7 +27,7 @@ public interface DataServer_I extends Remote {
     public  ArrayList <AgendaItem> getAgenda(String title,Date date) throws java.rmi.RemoteException;
     public  int updateAgenda(String title,Date date,ArrayList <AgendaItem> agenda) throws java.rmi.RemoteException;
     public  int checkMeetingGoing(String title,Date date,String username) throws java.rmi.RemoteException;
-    public  ArrayList <ActionItem> searchUndoneActions(String username) throws java.rmi.RemoteException;
+    public String searchUndoneActions(String username) throws java.rmi.RemoteException;
     public  int declineInvitation(String username,String title,Date date) throws java.rmi.RemoteException;
     public  int updateMeeting(String oldTitle,Date oldDate,String newDesiredOutcome,Date newDate,String newLeader,String newLocation) throws java.rmi.RemoteException;
     public  int closeAgendaMeeting(String title,Date date) throws java.rmi.RemoteException;
