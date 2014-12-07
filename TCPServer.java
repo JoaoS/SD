@@ -226,6 +226,7 @@ class Connection extends Thread {
         this.h =  h;
         thread_number = numero;
         try{
+            chatUsers = h.getChatUsers();
             clientSocket = aClientSocket;
             in = new DataInputStream(clientSocket.getInputStream());
             out = new DataOutputStream(clientSocket.getOutputStream());
@@ -234,8 +235,8 @@ class Connection extends Thread {
     }
     
     //=============================
-    public void run(){
-        
+    public void run()
+    {
         try{
            while(true){
                 menuInicial();
@@ -246,7 +247,6 @@ class Connection extends Thread {
 
         }
     }
-
 
     public void restartRmi()throws IOException
     {
@@ -355,8 +355,13 @@ class Connection extends Thread {
             else
             {
                 out.writeUTF("\nLogin sucessfully done.\n");
-                removeChatUser();
-                addToChats();
+                for(int i=0;i<chatUsers.size();i++)
+                {
+                    if(chatUsers.get(i).getIdUser() == myIdUser)
+                    {
+                        chatUsers.get(i).setOnline(true);
+                    }
+                }
                 showNewInvitations();
                 searchUndoneActions();
                 showUnseenMessages();
@@ -369,27 +374,7 @@ class Connection extends Thread {
     }
 
 
-    public void addToChats() throws RemoteException,IOException             
-    {                                                                                                                                   
-        ArrayList <Meeting> aux = new ArrayList <Meeting>(); 
-        try{
-            aux  = h.listMeetings(name);
-        }catch (RemoteException e) {    
-            restartRmi();
-        }
-        if(aux != null)
-        {
-            ArrayList <AgendaItem> agenda = new ArrayList();
-            for(int i=0;i<aux.size();i++)
-            {
-                agenda =  aux.get(i).getAgendaItems();
-                for(int j=0;j<agenda.size();j++)
-                {
-                    chatUsers.add(new ChatUser(name,aux.get(i).getTitle(),aux.get(i).getDate(),new DataOutputStream(clientSocket.getOutputStream()),false,agenda.get(j).getTitle())); 
-                }    
-            }
-        }
-    }
+
 
 
     public void register() throws IOException                                                               
@@ -446,8 +431,6 @@ class Connection extends Thread {
 
     public  int menuSecundario()throws IOException
     {
-        removeChatUser();
-        addToChats();
         int check= -1;
         int num=0;
         String ini="\n-------------------Secundary MENU-----------------\n\n1->Schedule meeting.\n\n2->Edit meeting.\n\n3.View information of a meeting.\n\n4.View my action items.\n\n5.Mark action item.\n\n6.List my upcoming meetings.\n\n7.Accept meeting invitation.\n\n8.Decline invitation.\n\n0.Exit.\n\n";
@@ -503,10 +486,23 @@ class Connection extends Thread {
                     break;
                 case 0:
                     check = 0;
-                    removeChatUser();
+                    for(int i=0;i<chatUsers.size();i++)
+                    {
+                        if(chatUsers.get(i).getIdUser() == myIdUser)
+                        {
+                            chatUsers.get(i).setOnline(false);
+                        }
+                    }
                     break;
                 default:
                     check= -1;
+                    for(int i=0;i<chatUsers.size();i++)
+                    {
+                        if(chatUsers.get(i).getIdUser() == myIdUser)
+                        {
+                            chatUsers.get(i).setOnline(false);
+                        }
+                    }
                     break;
            }
         }while(check== -1);
@@ -514,27 +510,6 @@ class Connection extends Thread {
     }
     
 
-    public void removeChatUser()            
-    {   
-        int i = 0;
-        try                                                                                                                                                
-        {
-            while(i<chatUsers.size())
-            {
-                if(chatUsers.get(i).getUser().equals(name))
-                {
-                    chatUsers.remove(i);
-                }
-                else
-                {
-                    i++;
-                }
-            }
-        }catch(Exception e)
-        {
-
-        }
-    }
 
 
     // ponto 1 do menu secundário ------> TRATAR DA EXCEPÇÃO DAS DATAS, VER SE USER JÁ FOI CONVIDADO, VER SE AGENDA MEETING JA FOI CRIADO
@@ -542,7 +517,6 @@ class Connection extends Thread {
     {
         ArrayList <String> invited = new ArrayList<String>();
         ArrayList <String> going = new ArrayList<String>();
-        ArrayList <AgendaItem> agendaItems = new ArrayList<AgendaItem> ();                   
         String s = "", username = "",agendaTitle;
         int checkUser=0,checkAgenda  =0,checkData=0;
         Date date = new Date();
@@ -800,8 +774,6 @@ class Connection extends Thread {
 
     public  void editMeetingMenu()throws IOException
     {
-        removeChatUser();
-        addToChats();
         int check=0;
         int num=0;
         String ini="\n-------------------Edit meeting MENU-----------------\n\n1->Change parameters of a meeting.\n\n2.Invite users to a meeting.\n\n3.Add items to the meeting agenda.\n\n4.Modify item of the meeting agenda.\n\n5.Delete items from the meeting agenda.\n\n6.Comment item from the meeting agenda.\n\n7.Close agenda meeting.\n\n8.Add keys decisions and action items to a meeting.\n\n";
@@ -994,7 +966,7 @@ class Connection extends Thread {
                  agenda = h.getAgenda(idMeeting);
                  for(int i=0;i<agenda.size();i++)
                  {
-                     System.out.println("\nAgenda item : " + agenda.get(i));
+                     out.writeUTF("\nAgenda item : " + agenda.get(i));
                  }
                  while(checkAnswer ==0)
                  {
@@ -1029,183 +1001,117 @@ class Connection extends Thread {
 
 
 
-
     public void deleteAgendaItem() throws RemoteException,IOException
     {   
-        out.writeUTF("\nInsert parameters of the meeting that you want to edit the agenda : \n\n");
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        int checkData= 0,checkUser=0,checkAgenda=0;
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
-        Date date = new Date();
-        String username,agendaTitle;
-        ArrayList <AgendaItem> agendaItems = new ArrayList<AgendaItem>();                  
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
-            {
-                date = formatter.parse(data);
-                if(date.before(current) || date.equals(current))
-                {
-                    out.writeUTF("\nDate belongs to the past.\n");
-                    checkData = 0;
-                }
-                else
-                {
-                    checkData =1;
-                }
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
-            }
-        }
-        try{ 
-            if(h.checkAgendaClosed(title,date)==1)
-            {
-                out.writeUTF("\nThe agenda for this meeting is closed or this meeting does not exist.\n");
-                return;
-            }
-            if(h.checkMeetingInvited(title,date,name) ==0)
-            {
-                out.writeUTF("\nA meeting with this parameters do not exists or you are not invited\n");
-                return;
-            }
-            else
-            {
-                agendaItems = h.getAgenda(title,date);
-                if(agendaItems == null)
-                {
-                    agendaItems = new ArrayList <AgendaItem>();
-                    agendaItems.add(new AgendaItem("Any other business"));
-                }
-                out.writeUTF("\nItems to be deleted from the meeting agenda(Insert 0 to stop) : \n");
-                while(true)
-                {
-                    out.writeUTF("\nTitle : \n");
-                    agendaTitle = in.readUTF();
-                    if(agendaTitle.equals("0")== true)
+        String agendaTitle;
+        // show upcoming meetings
+        listMeetings(1);
+        out.writeUTF("ID of the meeting that you want to delete an agenda items : ");
+        String id = in.readUTF();
+        int idMeeting = Integer.parseInt(id);
+        int checkAdd,checkAnswer = 0;
+        String oldTitle = "";
+        ArrayList <String> agenda = new ArrayList <String>();
+        try{
+             
+             if(h.checkAgendaClosed(idMeeting)==1)
+             {
+                 out.writeUTF("\nThe agenda for this meeting is closed.\n");
+                 return;
+             }
+             if(h.isInvited(myIdUser,idMeeting) ==0)
+             {
+                 out.writeUTF("\nYou are not invited to a meeting with that name.\n");
+                 return;
+             }
+             else
+             {     
+                 out.writeUTF("\n\nAgenda Items: \n\n");
+                 agenda = h.getAgenda(idMeeting);
+                 for(int i=0;i<agenda.size();i++)
+                 {
+                     System.out.println("\nAgenda item : " + agenda.get(i));
+                 }
+                 while(checkAnswer ==0)
+                 {
+                    out.writeUTF("\nWhich agenda item do you want to delete? \n\n");
+                    oldTitle = in.readUTF();  
+                    if(agenda.contains(oldTitle))
                     {
-                        break;
+                        checkAnswer = 1;
                     }
-                    if(agendaTitle.equalsIgnoreCase("Any other business"))
+                    if(checkAnswer ==0)
                     {
-                        out.writeUTF("\nThis agenda item can not be deleted.\n");
-                        continue;
-                    }
-                    for(int i=0;i<agendaItems.size();i++)
-                    {
-                        if(agendaItems.get(i).getTitle().equalsIgnoreCase(agendaTitle))
-                        {
-                            agendaItems.remove(i);
-                            out.writeUTF("\nAgenda item sucessfully removed.\n");
-                            checkAgenda = 1;
-                        }
-                    }
-                    if(checkAgenda ==0)
-                    {
-                        out.writeUTF("\nThis agenda item does not exist for this meeting.\n");
-                    }
-                    checkAgenda = 0;
-                }
-                h.updateAgenda(title,date,agendaItems);
-            }        
-       } catch (RemoteException e) {    
-        restartRmi();
-       }   
+                        out.writeUTF("\nThe agenda item that you inserted does not exist.\n");
+                    }   
+                 }
+                 if(h.deleteAgenda(idMeeting,oldTitle)==1)
+                 {
+                     out.writeUTF("\nAgenda item successfully deleted.\n");
+                 }
+                 else
+                 {
+                     out.writeUTF("\nSome error occurred, please try again.\n");
+                 }
+             }
+         } catch (RemoteException e) {    
+          restartRmi();
+         } 
     }
 
+    
+    
+    // FALTA PROTECÇÃO PARA KEYS E ACTIONS JA EXISTENTES, falta Protecção linha 1126 (getAgendaItem), FALTA PROTECÇÃO SE ACTION JA EXISTE, e se checkUser ==-1, se action foi successfully added
     public void addKeysActions() throws RemoteException,IOException
     {
-        out.writeUTF("\nInsert parameters of the meeting that you want to edit the agenda : \n\n");
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        int checkData= 0,checkUser=0,checkAgenda=0;
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
-        Date date = new Date();
-        String username,agendaTitle;
-        ArrayList <AgendaItem> agendaItems = new ArrayList<AgendaItem>();   
-        String s;    
-        int checkAnswer = 0;
-        int indice = 0;  
-        String toDo = "";  
-        int checkKeys =0;
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
-            {
-                date = formatter.parse(data);
-                if(current.before(date))
-                {
-                    out.writeUTF("\nThe meeting has not started yet.\n");
-                    checkData = 0;
-                    return;
-                }
-                else
-                {
-                    checkData =1;
-                }
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
-            }
-        }
-        try{    
-            if(h.checkMeetingGoing(title,date,name) ==0)
+        String agendaTitle,s,toDo;
+        // show upcoming meetings
+        listMeetings(1);
+        out.writeUTF("ID of the meeting that you want to add actions or key decisions : ");
+        String id = in.readUTF();
+        int idMeeting = Integer.parseInt(id);
+        int checkAdd,checkAnswer = 0,idAgenda=0,checkUser=0,idUser=0;
+        ArrayList <String> agendaItems = new ArrayList <String>();
+        try
+        {    
+            if(h.checkMeetingGoing(myIdUser,idMeeting) ==0)
             {
                 out.writeUTF("\nA meeting with this parameters do not exists or you are not going to it.\n");
                 return;
             }
             else
             {
-                agendaItems = h.getAgenda(title,date);
-                if(agendaItems == null)
-                {
-                    agendaItems = new ArrayList <AgendaItem> ();
-                    agendaItems.add(new AgendaItem("Any other business"));
-                }
-                out.writeUTF("\n\nAgenda items for the meeting " + title + ":\n\n");
+                agendaItems = h.getAgenda(idMeeting);
+                out.writeUTF("\n\nAgenda items : \n\n");
                 for(int i=0;i<agendaItems.size();i++)
                 {
-                    out.writeUTF(i + ". "+ agendaItems.get(i).getTitle() + "\n");
+                    System.out.println("\nAgenda item : " + agendaItems.get(i));
                 }
                 while(checkAnswer ==0)
                 {
-                    out.writeUTF("\nWhich agenda item do you want to edit ? \n\n");
-                    String answer = in.readUTF();
-                    for(int i=0;i<agendaItems.size();i++)
+                    out.writeUTF("\nYou want to add key decisions or agenda items to which agenda item ? \n\n");
+                    agendaTitle = in.readUTF();
+                    if(agendaItems.contains(agendaTitle))
                     {
-                        if(agendaItems.get(i).getTitle().equals(answer))
-                        {
-                            checkAnswer =1;
-                            indice = i;
-                            break;
-                        }
+                        checkAnswer = 1;
+                        idAgenda = h.getAgendaId(idMeeting,agendaTitle);
                     }
                     if(checkAnswer ==0)
                     {
                         out.writeUTF("\nThe agenda item that you inserted does not exist.\n");
-                    }   
+                    }    
                 }
                 out.writeUTF("\nAdd key decisions to the agenda item ? \n");
                 do
                 {
                     s = in.readUTF();
-                    if(s.equals("Y") == false && s.equals("N") == false)
+                    if(s.equalsIgnoreCase("Y") == false && s.equalsIgnoreCase("N") == false)
                     {
                         out.writeUTF("Insert Y(YES) or N(No).\n");
                     }
-                    }while(s.equals("Y") == false && s.equals("N") == false);
-                if(s.equals("Y")==true)
+                    }while(s.equalsIgnoreCase("Y") == false && s.equalsIgnoreCase("N") == false);
+                if(s.equalsIgnoreCase("Y")==true)
                 {
-                    ArrayList <KeyDecision> keys = agendaItems.get(indice).getKeys();
                     out.writeUTF("\nKey decisions to be addded to this agenda item(Insert 0 to stop) : \n");
                     while(true)
                     {
@@ -1215,46 +1121,20 @@ class Connection extends Thread {
                         {
                             break;
                         }
-                        if(keys != null)
-                        {    
-                            for(int j=0;j<keys.size();j++)
-                            {
-                                if(keys.get(j).getDecision().equals(decision))
-                                {
-                                    out.writeUTF("\nThis decision is already added.\n");
-                                    checkKeys = 1;
-                                    break;
-                                }
-                            }
-                        }
-                        if(checkKeys == 1)
-                        {
-                            checkKeys = 0;
-                            continue;
-                        }
-                        if(agendaItems.get(indice).getKeys() == null)
-                        {
-                            agendaItems.get(indice).setKeys(new ArrayList <KeyDecision>());
-                            agendaItems.get(indice).getKeys().add(new KeyDecision(decision,name));
-                            out.writeUTF("\nKey decision sucessfully added.\n");
-                        }
-                        else
-                        {
-                            agendaItems.get(indice).getKeys().add(new KeyDecision(decision,name));
-                            out.writeUTF("\nKey decision sucessfully added.\n");
-                        }
+                        h.addKeyDecision(idAgenda,decision);
+                        out.writeUTF("\nKey Decision successfully added.\n");
                     }
                 }
                 out.writeUTF("\nAdd action items to the agenda item ? \n");
                 do
                 {
                     s = in.readUTF();
-                    if(s.equals("Y") == false && s.equals("N") == false)
+                    if(s.equalsIgnoreCase("Y") == false && s.equalsIgnoreCase("N") == false)
                     {
                         out.writeUTF("Insert Y(YES) or N(No).\n");
                     }
-                    }while(s.equals("Y") == false && s.equals("N") == false);
-                if(s.equals("Y")==true)
+                    }while(s.equalsIgnoreCase("Y") == false && s.equalsIgnoreCase("N") == false);
+                if(s.equalsIgnoreCase("Y")==true)                                                                               
                 {
                     out.writeUTF("\nAction items to be addded to this agenda item(Insert 0 to stop) : \n");
                     while(true)
@@ -1269,10 +1149,9 @@ class Connection extends Thread {
                         {    
                             out.writeUTF("\nWho will do this ? :\n");
                             toDo =in.readUTF();
-                            if(h.checkUser(toDo) ==0)
+                            if((idUser= h.checkUser(toDo)) ==0)
                             {
                                 out.writeUTF("\nNo user with that username exists.\n");
-                                
                             }
                             else
                             {
@@ -1280,43 +1159,14 @@ class Connection extends Thread {
                             }
                         }
                         checkUser =0;
-                        ArrayList <ActionItem> aux = agendaItems.get(indice).getActions();
-                        int checkAction =0;
-                        if(aux != null)
-                        {
-                            for(int j=0;j<aux.size();j++)
-                            {
-                                if(aux.get(j).getAction().equals(action) && aux.get(j).getToDO().equals(toDo))
-                                {
-                                    out.writeUTF("\nThis action is already marked for this user.\n");
-                                    checkAction = 1;
-                                    break;
-                                }
-                            }
-                            if(checkAction == 1)
-                            {
-                                checkAction = 0;
-                                continue;
-                            }
-                        }
-                        if(aux == null)
-                        {
-                            agendaItems.get(indice).setActions(new ArrayList <ActionItem>());
-                            agendaItems.get(indice).getActions().add(new ActionItem(action,toDo,name,false));
-                            out.writeUTF("\nAction item sucessfully added.\n");
-                        }
-                        else
-                        {
-                            agendaItems.get(indice).getActions().add(new ActionItem(action,toDo,name,false));
-                            out.writeUTF("\nAction item sucessfully added.\n");
-                        }
+                        h.addAction(idAgenda,idUser,action);
+                        out.writeUTF("\nAction item sucessfully added.\n");
                     }
                 }
-                h.updateAgenda(title,date,agendaItems);
-            }                 
-           } catch (RemoteException e) {    
+            }
+        }catch (RemoteException e) {    
             restartRmi();
-           } 
+        } 
     }
 
 
@@ -1336,224 +1186,46 @@ class Connection extends Thread {
     }
 
 
+    // PROTECÇÃO SE QUER MUDAR OU NAO, PROTECÇÃO DAS DATAS
     public void changeMeeting() throws RemoteException,IOException
     {
-        out.writeUTF("\nInsert parameters of the meeting that you want to modify the agenda : \n\n");
-        out.writeUTF("\nTitle:\n");
-        String oldTitle =in.readUTF();
-        int checkData= 0,checkUser=0,checkAgenda=0,checkNewData = 0;
+        out.writeUTF("\nUpcomming meetings: \n\n");
+        Date date = new Date();
+        ArrayList<String> aux;
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
-        Date oldDate = new Date();
-        Date newDate =  null;
-        String username,agendaTitle;
-        ArrayList <AgendaItem> agendaItems = new ArrayList ();   
-        String s,newLeader = "",newLocation = "",newDesiredOutcome = "";    
-        int checkAnswer = 0;
-        int indice = 0;  
-        String toDo = "";  
-        int checkKeys =0;
-        int changes = 0;
-        int idMeeting = 0;
-        
-        try
-        {
-            idMeeting = h.checkMeeting(idMeeting);
-            if(idMeeting==0)
+        //lists all upcomming meetings, given by flag=1
+        try{
+ 
+            aux=h.listMeetings(myIdUser,1);
+            for(int i=0;i<aux.size();i++)
             {
-                out.writeUTF("\nThis meeting does not exist.\n");
-                return;
+                out.writeUTF(aux.get(i));
             }
-            else if(idMeeting==-1)
-            {
-                out.writeUTF("\nSome error occured, please try again.\n");
-                return;
+            out.writeUTF("Select the id of the meeting you want to change :");
+            int id_meeting=Integer.parseInt(in.readUTF());
+            //protections to verify if the user is allowed to alter the meeting, if he is leader>>>>>>>>>>>>>>>
+            out.writeUTF("Insert new desired outcome");
+            String newDesiredOutcome=in.readUTF();
+            out.writeUTF("Insert new date (dd/MM/yyyy HH:mm)");
+            String newData =in.readUTF();
+            try{
+                date = formatter.parse(newData);
+            }catch(ParseException e){
+                System.out.println("\nInsert a valid date.\n");
             }
-            if(h.checkMeetingLeader(oldTitle,oldDate,name) ==0)
+            out.writeUTF("Insert  new leader");
+            String newLeader =in.readUTF();
+            out.writeUTF("Insert  new location");
+            String newLocation =in.readUTF();
+            if(h.updateMeeting(id_meeting,newDesiredOutcome,date,newLeader,newLocation)==1)
             {
-                out.writeUTF("\nYou are not the leader of this meeting.\n");
+                out.writeUTF("\n\nMeeting parameters changed sucessfully.\n\n");
             }
-            else
-            {
-                ////////////////////////////////////////////////////////////////////////////////////////7
-                out.writeUTF("\nChange desired outcome for this meeting ? \n");
-                do
-                {
-                    s = in.readUTF();
-                    if(s.equals("Y") == false && s.equals("N") == false)
-                    {
-                        out.writeUTF("Insert Y(YES) or N(No).\n");
-                    }
-                }while(s.equals("Y") == false && s.equals("N") == false);
-                if(s.equals("Y")==true)                                                 
-                {
-                    changes++;
-                    out.writeUTF("\nDesired outcome:\n");
-                    newDesiredOutcome =in.readUTF();
-                }
-            /////////////////////////////////////////////////////////////////////////////////////////
-                out.writeUTF("\nChange date of this meeting ? \n");
-                do
-                {   
-                    s = in.readUTF();
-                    if(s.equals("Y") == false && s.equals("N") == false)
-                    {
-                        out.writeUTF("Insert Y(YES) or N(No).\n");
-                    }
-                }while(s.equals("Y") == false && s.equals("N") == false);
-                if(s.equals("Y")==true)
-                {
-                    changes++;
-                    while(checkNewData !=1)
-                    {      
-                        out.writeUTF("\nNew Date (dd/MM/yyyy HH:mm):\n");
-                        String newData =in.readUTF();
-                        try
-                        {
-                            newDate = formatter.parse(newData);
-                            if(newDate.before(current) || newDate.equals(current))
-                            {
-                                out.writeUTF("\nDate belongs to the past.\n");
-                                checkNewData = 0;
-                            }
-                            else
-                            {
-                                checkNewData =1;
-                            }
-                        }catch(ParseException e)
-                        {
-                            checkNewData =0;
-                            out.writeUTF("\nInvalid date.\n");
-                        }
-                    }
-                }
-            ////////////////////////////////////////////////////////////////////////////////////////////
-                out.writeUTF("\nChange leader of this meeting ? \n");
-                do
-                {
-                    s = in.readUTF();
-                    if(s.equals("Y") == false && s.equals("N") == false)
-                    {
-                        out.writeUTF("Insert Y(YES) or N(No).\n");
-                    }
-                }while(s.equals("Y") == false && s.equals("N") == false);
-                if(s.equals("Y")==true)                                                 
-                {
-                    changes++;
-                    while(checkUser == 0)
-                    {
-                        out.writeUTF("\nNew Leader:\n");
-                        newLeader =in.readUTF();
-                        if(h.checkUser(newLeader) == 0)
-                        {
-                            checkUser = 0;
-                            out.writeUTF("\nNo user with that username exists.\n");
-                        }
-                        else if(h.checkMeetingLeader(oldTitle,oldDate,newLeader) ==1)
-                        {
-                            out.writeUTF("\nThis user is already the leader.\n");
-                        }
-                        else
-                        {
-                            checkUser =1;
-                        }   
-                    }
-                }   
-            ///////////////////////////////////////////////////////////////////////////////////////////
-                out.writeUTF("\nChange location for this meeting ? \n");
-                do
-                {
-                    s = in.readUTF();
-                    if(s.equals("Y") == false && s.equals("N") == false)
-                    {
-                        out.writeUTF("Insert Y(YES) or N(No).\n");
-                    }
-                }while(s.equals("Y") == false && s.equals("N") == false);
-                if(s.equals("Y")==true)                                                 
-                {
-                    changes++;
-                    out.writeUTF("\nLocation:\n");
-                    newLocation =in.readUTF();
-                }
-            //////////////////////////////////////////////////////////////////////////////////////////////////
-                if(h.updateMeeting(oldTitle,oldDate,newDesiredOutcome,newDate,newLeader,newLocation)==1)
-                {
-                    out.writeUTF("\n\nMeeting parameters changed sucessfully.\n\n");
-                }
-                else
-                {
-                   out.writeUTF("\n\nAn error occurred, try again.\n\n"); 
-                }
-                String send = "";
-                ArrayList <String> usersSended = new ArrayList <String>();
-                ArrayList <String> meetingSended = new ArrayList <String>();
-                int checkSended = 0;
-                if(chatUsers != null)
-                {
-                    for(int i=0;i<chatUsers.size();i++)
-                    {
-                        if(chatUsers.get(i).getMeetingTitle().equals(oldTitle) && chatUsers.get(i).getMeetingDate().equals(oldDate) && chatUsers.get(i).getUser().equals(newLeader))
-                        {
-                            for(int j=0;j<usersSended.size();j++)
-                            {
-                                if(chatUsers.get(i).getMeetingTitle().equals(meetingSended.get(j)) && chatUsers.get(i).getUser().equals(usersSended.get(j)))
-                                {
-                                    checkSended = 1;
-                                    break;
-                                }
-                            }
-                            if(checkSended ==1)
-                            {
-                                checkSended = 0;
-                            }
-                            else
-                            {
-                                usersSended.add(chatUsers.get(i).getUser());
-                                meetingSended.add(chatUsers.get(i).getMeetingTitle());
-                                send = "\n-------Meeting "+ oldTitle + " was changed--------\n\nYou are the new leader of this meeting.\n\n";
-                                chatUsers.get(i).getOutput().writeUTF(send);
-                            }
-
-                        }
-                        else if(chatUsers.get(i).getMeetingTitle().equals(oldTitle) && chatUsers.get(i).getMeetingDate().equals(oldDate) && chatUsers.get(i).getUser().equals(name) == false)
-                        {
-                                for(int j=0;j<usersSended.size();j++)
-                                {
-                                    if(chatUsers.get(i).getMeetingTitle().equals(meetingSended.get(j)) && chatUsers.get(i).getUser().equals(usersSended.get(j)))
-                                    {
-                                        checkSended = 1;
-                                        break;
-                                    }
-                                }
-                                if(checkSended ==1)
-                                {
-                                    checkSended = 0;
-                                }
-                                else
-                                {
-                                    usersSended.add(chatUsers.get(i).getUser());
-                                    meetingSended.add(chatUsers.get(i).getMeetingTitle());
-                                    send = "\n-------Meeting "+ oldTitle + " was changed--------\n";
-                                    chatUsers.get(i).getOutput().writeUTF(send);
-                                }
-                        }
-                    }
-                    for(int i=0;i<chatUsers.size();i++)
-                    {
-                        if(chatUsers.get(i).getMeetingTitle().equals(oldTitle) && chatUsers.get(i).getMeetingDate().equals(oldDate))
-                        {
-                            if(newDate != null)
-                            {
-                                chatUsers.get(i).setMeetingDate(newDate);
-                            }
-                        }
-                    }
-                }
-            }       
-        }catch(RemoteException e) {
+        } catch (RemoteException e) {
             restartRmi();
         }
     }
+
 
 
     public void closeAgenda() throws RemoteException,IOException
@@ -1586,99 +1258,55 @@ class Connection extends Thread {
 
 
 
+    // PROTECÇÃO PARA DATA,MEETING,REMOVER UNSEEN MESSAGES
     public void commentAgendaItem() throws RemoteException,IOException,java.io.NotSerializableException         
     {                                                                                                                                       
-        ArrayList <String> seen = new ArrayList();
-        out.writeUTF("\nInsert parameters of the meeting that you want comment an agenda item : \n\n");
-        out.writeUTF("\nTitle:\n");
-        String title =in.readUTF();
-        int checkData= 0,checkUser=0,checkAgenda=0;
-        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        Date current = new Date();
-        Date date = new Date();
-        String username,agendaTitle;
-        ArrayList <AgendaItem> agendaItems = new ArrayList<AgendaItem>();   
-        String s;    
-        int checkAnswer = 0;
-        int indice = 0;  
-        String toDo = "";  
-        int checkKeys =0;
-        String answer ="";
-        String send = "";
-        while(checkData !=1)
-        {   
-            out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
-            try
-            {
-                date = formatter.parse(data);
-                checkData =1;
-            }catch(ParseException e)
-            {
-                checkData =0;
-                out.writeUTF("\nInvalid date.\n");
-            }
-        }
+        String agendaTitle="",send;
+        // show all user meetings
+        listMeetings(0);
+        out.writeUTF("ID of the meeting that you want to add agenda items : ");
+        String id = in.readUTF();
+        int idMeeting = Integer.parseInt(id);
+        int checkAdd,checkAnswer = 0,idAgenda  =0,idMessage =0;
+        ArrayList <String> agenda = new ArrayList <String>();
         try{
-            if(h.checkMeetingInvited(title,date,name) ==0)
-            {
-                out.writeUTF("\nA meeting with this parameters do not exists or you are not invited to it.\n");
-                return;
-            }
-            else
-            {
-                try{
-                    agendaItems = h.getAgenda(title,date);
-                }catch(RemoteException e){
-                    restartRmi();             
-                }
-                agendaItems = h.getAgenda(title,date);
-                if(agendaItems == null)
-                {
-                    agendaItems = new ArrayList <AgendaItem>();
-                    agendaItems.add(new AgendaItem("Any other business"));
-                }
-                out.writeUTF("\n\nAgenda items for the meeting " + title + ":\n\n");
-                for(int i=0;i<agendaItems.size();i++)
-                {
-                    out.writeUTF(i + ". "+ agendaItems.get(i).getTitle() + "\n");
-                }
-                while(checkAnswer ==0)
-                {
-                    out.writeUTF("\nWhich agenda item do you want to comment ? \n\n");
-                    answer = in.readUTF();
-                    for(int i=0;i<agendaItems.size();i++)
+            
+             if(h.isInvited(myIdUser,idMeeting) ==0)
+             {
+                 out.writeUTF("\nYou are not invited to a meeting with that id.\n");
+                 return;
+             }
+             else
+             {     
+                 out.writeUTF("\n\nAgenda Items: \n\n");
+                 agenda = h.getAgenda(idMeeting);
+                 for(int i=0;i<agenda.size();i++)
+                 {
+                     out.writeUTF("\nAgenda item : " + agenda.get(i));
+                 }
+                 while(checkAnswer ==0)
+                 {
+                    out.writeUTF("\n\nWhich agenda item chat do you want to enter ? \n\n");
+                    agendaTitle = in.readUTF();  
+                    if(agenda.contains(agendaTitle))
                     {
-                        if(agendaItems.get(i).getTitle().equals(answer))
-                        {
-                            checkAnswer =1;
-                            indice = i;
-                            break;
-                        }
+                        checkAnswer = 1;
+                        idAgenda = h.getAgendaId(idMeeting,agendaTitle);
                     }
                     if(checkAnswer ==0)
                     {
                         out.writeUTF("\nThe agenda item that you inserted does not exist.\n");
-                    }      
-                }
+                    }   
+                 }
+                // user is active in chat of this agenda item of the meeting
                 for(int i=0;i<chatUsers.size();i++)
                 {
-                    if(chatUsers.get(i).getUser().equals(name) && chatUsers.get(i).getMeetingTitle().equals(title) && chatUsers.get(i).getMeetingDate().equals(date) && chatUsers.get(i).getAgendaTitle().equals(answer))
-                    {
-                        chatUsers.get(i).setInChat(true);
-                    }
+                  if(chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser)
+                  {
+                      chatUsers.get(i).setInChat(true);
+                  }
                 }
-                try{
-                     h.removeUnseen(name,title,date,answer);
-                }catch(RemoteException e){
-                    restartRmi();
-                }
-                h.removeUnseen(name,title,date,answer);
-                if(agendaItems.get(indice).getChat().getMessages() == null)
-                {
-                    agendaItems.get(indice).getChat().setMessages(new ArrayList <String>()) ;
-                }
-                ArrayList <String> aux = agendaItems.get(indice).getChat().getMessages();
+                ArrayList <String> aux = h.getAgendaMessages(idAgenda);
                 String ini="\n-------------------Messages-----------------(Type 'exit' to leave the chat)\n";
                 out.writeUTF(ini);
                 if(aux != null)
@@ -1695,39 +1323,42 @@ class Connection extends Thread {
                     m+=apend;
                     if(apend.equals("exit"))
                     {
-                        for(int i=0;i<chatUsers.size();i++)
+                        for (int i = 0; i < chatUsers.size(); i++) 
                         {
-                            if(chatUsers.get(i).getUser().equals(name) && chatUsers.get(i).getMeetingTitle().equals(title) && chatUsers.get(i).getMeetingDate().equals(date) && chatUsers.get(i).getAgendaTitle().equals(answer))
+                            if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser) 
                             {
                                 chatUsers.get(i).setInChat(false);
                             }
                         }
                         return;
                     }
-                    agendaItems.get(indice).getChat().getMessages().add(m);
                     try{
-                        h.saveMessage(title,date,answer,m);
+                        h.addMessage(idAgenda,m);
                     }catch(RemoteException e){
                         restartRmi();
+                        h.addMessage(idAgenda,m);
                     }      
-                    h.saveMessage(title,date,answer,m);
                     for(int i=0;i<chatUsers.size();i++)
                     {
-                        if(chatUsers.get(i).getMeetingTitle().equals(title) && chatUsers.get(i).getMeetingDate().equals(date) && chatUsers.get(i).isInChat() == true && chatUsers.get(i).getAgendaTitle().equals(answer))
+                        if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser && chatUsers.get(i).isInChat() == true)
                         {
-
-                            seen.add(chatUsers.get(i).getUser());
                             chatUsers.get(i).getOutput().writeUTF(m);
                         }
-                        else if(chatUsers.get(i).getMeetingTitle().equals(title) && chatUsers.get(i).getMeetingDate().equals(date) && chatUsers.get(i).isInChat() == false && chatUsers.get(i).getAgendaTitle().equals(answer))
+                        if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser && chatUsers.get(i).isInChat() == false)
                         {
-                            seen.add(chatUsers.get(i).getUser());
-                            send = "\n-------New messages in the chat of the agenda item " + answer + " of the meeting " + title +" --------\n";
+                            send = "\n-------New messages in the chat of the agenda item " + agendaTitle + " of the meeting " + h.getMeetingName(idMeeting) +" --------\n";
                             chatUsers.get(i).getOutput().writeUTF(send);
                         }
                     }
-                    try{
-                        h.unseenUsers(seen,title,date,answer);
+                    try
+                    {
+                        for(int i=0;i<chatUsers.size();i++)
+                        {
+                            if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser && (chatUsers.get(i).isInChat() == false || chatUsers.get(i).isOnline()==false))
+                            {
+                                h.addUnseenMessage(chatUsers.get(i).getIdUser(),idMessage);
+                            }
+                        }
                     }catch(RemoteException e){
                         restartRmi();
                     }
@@ -1741,34 +1372,8 @@ class Connection extends Thread {
 
     public void showUnseenMessages() throws RemoteException,IOException
     {
-        ArrayList <AgendaItem> agenda = new ArrayList();
-        ArrayList <String> unseen = new ArrayList();
-        ArrayList <Meeting> aux; 
-        try{
-                aux = h.listMeetings(name);
-            }catch(RemoteException e){
-            restartRmi();
-            }
-
-        aux = h.listMeetings(name);
-        if(aux != null)
-        {
-            for(int i=0;i<aux.size();i++)
-            {
-                agenda = aux.get(i).getAgendaItems();
-                if(agenda != null)
-                {
-                    for(int j=0;j<agenda.size();j++)
-                    {
-                        unseen = agenda.get(j).getUnseen();
-                        if(unseen != null && unseen.contains(name))
-                        {
-                            out.writeUTF("\nNew messages in agenda item " + agenda.get(j).getTitle() + " of the meeting " + aux.get(i).getTitle());
-                        }
-                    }
-                }
-            }
-        }
+        String aux = h.showUnseenMessages(myIdUser);
+        System.out.println(aux);
     }
 
 

@@ -7,79 +7,70 @@ public class ChatUser implements Serializable
 {
 
     private static final long serialVersionUID = 1L;
-    private String user;
-    private String meetingTitle;
-    private Date meetingDate;
-    private String agendaTitle;
+    private int idMeeting;
+    private int idAgenda;
+    private int idUser;
     private DataOutputStream output;
     private boolean inChat;
+    private boolean online;
 
 
-
-    public ChatUser(String user,String meetingTitle,Date meetingDate,DataOutputStream output, boolean inChat,String agendaTitle) 
+    public ChatUser(int idMeeting,int idAgenda,int idUser,boolean inChat,boolean online) 
     {
-        this.user =  user;
-        this.meetingTitle = meetingTitle;
-        this.meetingDate = meetingDate;
-        this.output = output;
+        this.idMeeting= idMeeting;
+        this.idAgenda = idAgenda;
+        this.idUser = idUser;
         this.inChat = inChat;
-        this.agendaTitle = agendaTitle;
-    }
-   
-       
-    public String getUser() 
-    {
-        return user;
+        this.online = online;
     }
 
-    public String setUser(String user) {
-        return this.user = user;
+    public int getIdMeeting() {
+        return idMeeting;
     }
 
-    public String getMeetingTitle() 
-    {
-        return meetingTitle;
+    public void setIdMeeting(int idMeeting) {
+        this.idMeeting = idMeeting;
     }
 
-    public String setMeetingTitle(String meetingTitle) {
-        return this.meetingTitle = meetingTitle;
+    public int getIdAgenda() {
+        return idAgenda;
     }
 
-
-    public String getAgendaTitle() 
-    {
-        return agendaTitle;
+    public void setIdAgenda(int idAgenda) {
+        this.idAgenda = idAgenda;
     }
 
-    public String setAgendaTitle(String agendaTitle) {
-        return this.agendaTitle = agendaTitle;
+    public int getIdUser() {
+        return idUser;
     }
 
-    
-    public Date getMeetingDate() 
-    {
-        return meetingDate;
+    public void setIdUser(int idUser) {
+        this.idUser = idUser;
     }
 
-    public Date setMeetingDate(Date meetingDate) {
-        return this.meetingDate = meetingDate;
-    }
-
-    public DataOutputStream getOutput() 
-    {
+    public DataOutputStream getOutput() {
         return output;
     }
 
-    public DataOutputStream setOutput(DataOutputStream output) {
-        return this.output = output;
+    public void setOutput(DataOutputStream output) {
+        this.output = output;
     }
 
-    public Boolean isInChat() {
+    public boolean isInChat() {
         return inChat;
     }
 
-    public void setInChat(Boolean inChat) {
+    public void setInChat(boolean inChat) {
         this.inChat = inChat;
     }
+   
+    public boolean isOnline() {
+        return online;
+    }
+
+    public void setOnline(boolean online) {
+        this.online = online;
+    }
+    
 
 }
