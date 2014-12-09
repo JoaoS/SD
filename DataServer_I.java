@@ -46,5 +46,10 @@ public interface DataServer_I extends Remote {
     public int addUnseenMessage(int idMessage,int idUser) throws java.rmi.RemoteException;
     public ArrayList<ChatUser> getChatUsers() throws java.rmi.RemoteException;
     public String showUnseenMessages(int idUser) throws java.rmi.RemoteException;
+    public int removeUnseenMessages(int idUser,int idAgenda) throws java.rmi.RemoteException;
+    public ArrayList <Integer> getAgendaIds(int idMeeting) throws java.rmi.RemoteException;
+    public int checkAction(int idAction,int idUser) throws java.rmi.RemoteException;
+    public int existKey(int idAgenda,String decision) throws java.rmi.RemoteException;
+    public int alreadyMarked(int idAgenda,int idUser,String action) throws java.rmi.RemoteException;
 
 }

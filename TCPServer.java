@@ -226,7 +226,6 @@ class Connection extends Thread {
         this.h =  h;
         thread_number = numero;
         try{
-            chatUsers = h.getChatUsers();
             clientSocket = aClientSocket;
             in = new DataInputStream(clientSocket.getInputStream());
             out = new DataOutputStream(clientSocket.getOutputStream());
@@ -342,8 +341,8 @@ class Connection extends Thread {
                 myIdUser = h.checkUserPass(name,pass);         
            } catch (RemoteException e) {    
             restartRmi();
-           }
             myIdUser = h.checkUserPass(name,pass);
+           }
             if(myIdUser ==0)
             {
                 out.writeUTF("\nWrong username or password.\n");
@@ -355,13 +354,6 @@ class Connection extends Thread {
             else
             {
                 out.writeUTF("\nLogin sucessfully done.\n");
-                for(int i=0;i<chatUsers.size();i++)
-                {
-                    if(chatUsers.get(i).getIdUser() == myIdUser)
-                    {
-                        chatUsers.get(i).setOnline(true);
-                    }
-                }
                 showNewInvitations();
                 searchUndoneActions();
                 showUnseenMessages();
@@ -374,12 +366,8 @@ class Connection extends Thread {
     }
 
 
-
-
-
     public void register() throws IOException                                                               
     {                                                                               
-        
         int check=0,checkAdd = 0;
         String ini="\n-------------------MENU register-----------------\n";
         out.writeUTF(ini);
@@ -398,7 +386,7 @@ class Connection extends Thread {
                 restartRmi(); 
                 check = h.checkUser(username);
             }
-            if(check == 1)
+            if(check >= 1)
             {
                 out.writeUTF("\nThis username already exists. Try a different one.\n");
             }
@@ -431,6 +419,15 @@ class Connection extends Thread {
 
     public  int menuSecundario()throws IOException
     {
+        // update chatUsers every time a new action begin
+        chatUsers = h.getChatUsers();
+        for(int i=0;i<chatUsers.size();i++)
+        {
+            if(chatUsers.get(i).getIdUser() == myIdUser)
+            {
+                        chatUsers.get(i).setOnline(true);
+            }
+        }
         int check= -1;
         int num=0;
         String ini="\n-------------------Secundary MENU-----------------\n\n1->Schedule meeting.\n\n2->Edit meeting.\n\n3.View information of a meeting.\n\n4.View my action items.\n\n5.Mark action item.\n\n6.List my upcoming meetings.\n\n7.Accept meeting invitation.\n\n8.Decline invitation.\n\n0.Exit.\n\n";
@@ -494,32 +491,22 @@ class Connection extends Thread {
                         }
                     }
                     break;
-                default:
-                    check= -1;
-                    for(int i=0;i<chatUsers.size();i++)
-                    {
-                        if(chatUsers.get(i).getIdUser() == myIdUser)
-                        {
-                            chatUsers.get(i).setOnline(false);
-                        }
-                    }
-                    break;
            }
-        }while(check== -1);
+        }while(check!= 0);
         return check;
     }
     
 
-
-
-    // ponto 1 do menu secundário ------> TRATAR DA EXCEPÇÃO DAS DATAS, VER SE USER JÁ FOI CONVIDADO, VER SE AGENDA MEETING JA FOI CRIADO
+    // ponto 1 do menu secundário 
     public void scheduleMeeting() throws IOException                                    
     {
-        ArrayList <String> invited = new ArrayList<String>();
-        ArrayList <String> going = new ArrayList<String>();
+        ArrayList <Integer> invited = new ArrayList <Integer>();
+        ArrayList <String> agendaItems = new ArrayList <String>();
+        ArrayList <String> agenda = new ArrayList <String>();
         String s = "", username = "",agendaTitle;
         int checkUser=0,checkAgenda  =0,checkData=0;
         Date date = new Date();
+        String data = "";
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
         formatter.setLenient(false);
         out.writeUTF("\nTitle:\n");
@@ -530,7 +517,7 @@ class Connection extends Thread {
         while(checkData !=1)
         {   
             out.writeUTF("\nDate (dd/MM/yyyy HH:mm):\n");
-            String data =in.readUTF();
+            data =in.readUTF();
             try
             {
                 date = formatter.parse(data);
@@ -547,7 +534,7 @@ class Connection extends Thread {
         try
         {    
             check = h.checkMeeting(title,date,location);
-            if(check ==1)
+            if(check >=1)
             {
                 out.writeUTF("\nA meeting with this parameters already exists.\n");
                 return;
@@ -567,6 +554,8 @@ class Connection extends Thread {
             }
        } catch (RemoteException e) {    
             restartRmi();
+            out.writeUTF("\nAn error occurred, please try again.\n");
+            return;
         }
         out.writeUTF("\nInvite users to the meeting ? \n");
         do
@@ -580,11 +569,20 @@ class Connection extends Thread {
         // add users to user_meeting table at database
         try
         {
-            h.addUserMeeting(myIdUser,idMeeting,1);
+            if(h.addUserMeeting(myIdUser,idMeeting,1)==0)
+            {
+                out.writeUTF("\nSome error occured, please try again.\n");
+                return;
+            }
         }
         catch(RemoteException e)
         {
             restartRmi();
+            if(h.addUserMeeting(myIdUser,idMeeting,1)==0)
+            {
+                out.writeUTF("\nSome error occured, please try again.\n");
+                return;
+            }
         }
         if(s.equals("Y") == true)
         {
@@ -609,9 +607,15 @@ class Connection extends Thread {
                     }
                     else
                     {
+                        if(h.isInvited(idUser, idMeeting)==1)                         
+                        {
+                            out.writeUTF("\nThis user is already invited.\n");
+                            continue;
+                        }
                         if(h.addUserMeeting(idUser,idMeeting,0)==1)
                         {
                            out.writeUTF("\nUser sucessfully invited.\n"); 
+                           invited.add(idUser);
                         }
                         else
                         {
@@ -637,21 +641,77 @@ class Connection extends Thread {
             out.writeUTF("\nItems to be added to the meeting agenda(Insert 0 to stop) : \n");
             while(true)
             {
+                try
+                {    
+                    agenda  = h.getAgenda(idMeeting);
+                }catch(RemoteException e)
+                {
+                    restartRmi();
+                    agenda  = h.getAgenda(idMeeting);
+                }
                 out.writeUTF("\nTitle : \n");
                 agendaTitle = in.readUTF();
                 if(agendaTitle.equals("0")== true)
                 {
                     break;
                 }
-                if(agendaTitle.equalsIgnoreCase("Any other business"))
+                if(agendaTitle.equalsIgnoreCase("Any other business") || agenda.contains(agendaTitle))
                 {
                     out.writeUTF("\nThis agenda item already exists.\n");
                     continue;
                 }
-                h.addAgendaItem(idMeeting,agendaTitle);
+                try
+                {    
+                    h.addAgendaItem(idMeeting,agendaTitle);
+                }
+                catch(RemoteException e)
+                {
+                    restartRmi();
+                    h.addAgendaItem(idMeeting,agendaTitle);
+                }
+                out.writeUTF("\nAgenda item successfully added.\n");
+                agendaItems.add(agendaTitle);
             }
         }
-        h.addAgendaItem(idMeeting,"Any other business");                                                                               
+        try
+        {
+            h.addAgendaItem(idMeeting,"Any other business");
+        }catch(RemoteException e)
+        {
+            restartRmi();
+             h.addAgendaItem(idMeeting,"Any other business");
+        }
+        agendaItems.add("Any other business");
+        out.writeUTF("\nMeeting successfully scheduled.\n");
+        int auxAgenda;
+        // add to chatUsers
+        for(int i=0;i<agendaItems.size();i++)
+        {
+            try
+            {
+                auxAgenda = h.getAgendaId(idMeeting,agendaItems.get(i));
+            }
+            catch(RemoteException e)
+            {
+                restartRmi();
+                auxAgenda = h.getAgendaId(idMeeting,agendaItems.get(i));
+            }
+            for(int j=0;j<invited.size();i++)
+            {
+                chatUsers.add(new ChatUser(idMeeting,auxAgenda,invited.get(j),false,false));
+            }
+        }
+        ArrayList<Integer> idSended = new ArrayList<Integer>();
+        String send = "\nYou were invited to the meeting " + title + " at " + data + " in " + location;
+        // warning users that they were invited
+        for (int i = 0; i < chatUsers.size(); i++) 
+        {
+            if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).isOnline() == true && idSended.contains(chatUsers.get(i).getIdUser()) == false) 
+            {
+                idSended.add(chatUsers.get(i).getIdUser());
+                chatUsers.get(i).getOutput().writeUTF(send);
+            }
+        }
     }
 
 
@@ -659,11 +719,44 @@ class Connection extends Thread {
     public void viewMeeting() throws RemoteException,IOException
     {
         listMeetings(0);
-        out.writeUTF("\nId of the meeting that you want to view information:\n");
-        String id =in.readUTF();
-        int idMeeting = Integer.parseInt(id);
         String aux;
-        aux = h.searchMeeting(idMeeting);
+        int checkMeeting = 0,idMeeting = 0;
+        while(checkMeeting ==0)
+        {
+            out.writeUTF("\nId of the meeting that you want to view information: \n");
+            String id =in.readUTF();
+            idMeeting = Integer.parseInt(id);
+            try
+            {
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }catch(RemoteException e)
+            {
+                restartRmi();
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }
+            if(checkMeeting == 0)
+            {
+                out.writeUTF("\nThis ID is not associated to any meeting.\n");
+            }
+            else if(checkMeeting == -1)
+            {
+                 out.writeUTF("\nSome error occured, please try again.\n");
+                 return;
+            }
+            else
+            {
+                checkMeeting = 1;
+            }
+            
+        }
+        try
+        {
+            aux = h.searchMeeting(idMeeting);
+        }catch(RemoteException e)
+        {
+            restartRmi();
+            aux = h.searchMeeting(idMeeting);
+        }
         System.out.println(aux);
     }
 
@@ -671,13 +764,18 @@ class Connection extends Thread {
     //ponto 4 do menu secundario
     public void viewActions() throws RemoteException,IOException
     {                                                                                                          
-        String myActions;
+        String myActions =  null;
         try{
             myActions= h.searchActions(name);        
         }catch (RemoteException e) {    
             restartRmi();
             myActions= h.searchActions(name);
-        } 
+        }
+        if(myActions.equals(""))
+        {
+            out.writeUTF("\nYou do not have associated actions.\n");
+            return;
+        }
         System.out.println(myActions);
     }
 
@@ -685,10 +783,36 @@ class Connection extends Thread {
     public void markAction() throws RemoteException,IOException                                               
     {       
         searchUndoneActions();
-        out.writeUTF("\nInsert id of the action that you want to mark :\n");
-        String action =in.readUTF();
-        int id_action = Integer.parseInt(action);
-        h.markAction(id_action,myIdUser);
+        int checkAction = 0,id_action=0;
+        while(checkAction ==0)
+        {
+            out.writeUTF("\nInsert id of the action that you want to mark :\n");
+            String action = in.readUTF();
+            id_action = Integer.parseInt(action);
+            try {
+                 checkAction = h.checkAction(id_action, myIdUser);
+            } catch (RemoteException e) {
+                restartRmi();
+                checkAction = h.checkAction(id_action, myIdUser);
+            }
+            if(checkAction == -1)
+            {
+                out.writeUTF("\nSome error occured, please try again.\n");
+            }
+            else if(checkAction == 0)
+            {
+                out.writeUTF("\nYou have no action with this ID associated.\n");
+            }
+        }
+        try
+        {    
+            h.markAction(id_action,myIdUser);
+        }catch(RemoteException e)
+        {
+            restartRmi();
+            h.markAction(id_action,myIdUser);
+        }
+        out.writeUTF("\nAction successfully marked.\n");
     }
 
 
@@ -696,10 +820,22 @@ class Connection extends Thread {
     public void listMeetings(int flag) throws RemoteException,IOException                                                                                                     
     {                                                                                                               
         ArrayList <String> meetings = new ArrayList <String>();
-        meetings = h.listMeetings(myIdUser,flag);
+        try
+        {
+            meetings = h.listMeetings(myIdUser,flag);
+        }catch(RemoteException e)
+        {
+            restartRmi();
+            meetings = h.listMeetings(myIdUser,flag);
+        }
+        if(meetings.isEmpty())
+        {
+            out.writeUTF("\nYou have no meetings.\n");
+            return;
+        }
         for(int i=0;i<meetings.size();i++)
         {
-            System.out.println(meetings.get(i));
+            out.writeUTF(meetings.get(i));
         }
     }
 
@@ -712,21 +848,46 @@ class Connection extends Thread {
         out.writeUTF("\nUpcomming meetings: \n\n");
         Date date = new Date();
         ArrayList<String> aux;
+        int checkMeeting=0, accept_id=0;
         //lists all upcomming meetings, given by flag=1
         try{
  
             aux=h.listMeetings(myIdUser,1);
+            if(aux.isEmpty())
+            {
+                out.writeUTF("\nYou have no upcoming meetings");
+                return;
+            }
             for(int i=0;i<aux.size();i++)
             {
                 out.writeUTF(aux.get(i));
             }
- 
-            out.writeUTF("\nSelect the id of the meeting you wish to accept: \n\n");
-            //ask user meeting id to decline
-            String answer=in.readUTF();
-            int accept_id=Integer.parseInt(answer);
+            while(checkMeeting ==0)
+            {
+                out.writeUTF("\nSelect the id of the meeting you wish to accept: \n\n");
+                //ask user meeting id to decline
+                String answer=in.readUTF();
+                accept_id=Integer.parseInt(answer);
+                checkMeeting = h.checkMeeting(accept_id);
+                if(checkMeeting == 0)
+                {
+                    out.writeUTF("\nYou are not invited to a meeting with this ID.\n");
+                }
+                else if(checkMeeting == -1)
+                {
+                    out.writeUTF("\nSome error occurred, please try again.\n");
+                    return;
+                }
+            }
             int check=h.acceptInvitation(myIdUser,accept_id);
- 
+            if(check == 1)
+            {
+                out.writeUTF("\nSInvitation successfully accepted\n");
+            }
+            else
+            {
+               out.writeUTF("\nSome error occurred, please try again.\n"); 
+            }
         } catch (RemoteException e) {
             restartRmi();
         }
@@ -735,43 +896,91 @@ class Connection extends Thread {
     /*
     *ponto 8 do menu secundario, recusa convites com -1
     */
- 
-    public void declineInvitation() throws RemoteException,IOException
+    
+    
+    public void declineInvitation() throws RemoteException,IOException                                                    
     {
         out.writeUTF("\nUpcomming meetings: \n\n");
         Date date = new Date();
         ArrayList<String> aux;
+        int checkMeeting=0, cancel_id=0;
         //lists all upcomming meetings, given by flag=1
         try{
+ 
             aux=h.listMeetings(myIdUser,1);
+            if(aux.isEmpty())
+            {
+                out.writeUTF("\nYou have no upcoming meetings");
+                return;
+            }
             for(int i=0;i<aux.size();i++)
             {
-              out.writeUTF(aux.get(i));
+                out.writeUTF(aux.get(i));
             }
-            out.writeUTF("\nSelect the id of the meeting you wish to cancel: \n\n");
-            //ask user meeting id to decline
-            String answer=in.readUTF();
-            int cancel_id=Integer.parseInt(answer);
+            while(checkMeeting ==0)
+            {
+                 out.writeUTF("\nSelect the id of the meeting you wish to cancel: \n\n");
+                //ask user meeting id to decline
+                String answer=in.readUTF();
+                cancel_id=Integer.parseInt(answer);
+                checkMeeting = h.checkMeeting(cancel_id);
+                if(checkMeeting == 0)
+                {
+                    out.writeUTF("\nYou are not invited to a meeting with this ID.\n");
+                }
+                else if(checkMeeting == -1)
+                {
+                    out.writeUTF("\nSome error occurred, please try again.\n");
+                    return;
+                }
+            }
             int check = h.declineInvitation(myIdUser,cancel_id);
+            if(check == 1)
+            {
+                out.writeUTF("\nSInvitation successfully canceled\n");
+            }
+            else
+            {
+               out.writeUTF("\nSome error occurred, please try again.\n"); 
+            }
         } catch (RemoteException e) {
             restartRmi();
         }
     }
-
-
+ 
+    
     // mostrar novos convites
 
     public void showNewInvitations() throws RemoteException,IOException
     {
         String ini="\n-------------------New invitations-----------------\n";
         out.writeUTF(ini);
-        String aux = h.showNewInvitations(myIdUser);
-        System.out.println(aux);
+        String aux = "";
+        try
+        {
+            aux = h.showNewInvitations(myIdUser);
+        }catch(RemoteException e)
+        {
+            restartRmi();
+            aux = h.showNewInvitations(myIdUser);
+        }
+        if(aux.equals(""))
+        {
+            out.writeUTF("\nYou do not have new invitations.\n");
+            return;
+        }
+        else if(aux == null)
+        {
+            out.writeUTF("\nSome error occurred, please try again.\n");
+        }
+        else
+        {
+            out.writeUTF(aux);
+        }
     }
 
 
     // menu terciario 
-
     public  void editMeetingMenu()throws IOException
     {
         int check=0;
@@ -837,12 +1046,16 @@ class Connection extends Thread {
 
     public void inviteUsers() throws RemoteException,IOException                        
     {   
-        String username;              
+        String username;   
+        ArrayList <Integer> invited = new ArrayList <Integer>();
+        ArrayList <Integer> agendaItems = new ArrayList <Integer>();
         // show upcoming meetings
         listMeetings(1);
         out.writeUTF("ID of the meeting that you want to invite Users : ");
         String id = in.readUTF();
         int idMeeting = Integer.parseInt(id);
+        agendaItems = h.getAgendaIds(idMeeting);
+        int idUser=0;
         try{
             if(h.checkMeetingLeader(idMeeting,name) ==0)
             {
@@ -861,37 +1074,79 @@ class Connection extends Thread {
             {
                 break;
             }
-            if(h.isInvited(myIdUser, idMeeting)==0)
+            try
             {
-                out.writeUTF("\nThis user is already invited.\n");
-                continue;
-            }
-            try{
-                if(h.checkUser(username) == 1)                                                                                      
+                if((idUser = h.checkUser(username)) == 0)                                                                                      
                 {
-                    h.addUserMeeting(myIdUser, idMeeting, 0);
-                    out.writeUTF("\nUser sucessfully invited.\n");
+                    out.writeUTF("\nNo user with that username exists.\n");
+                    continue;
+                }
+                if(h.isInvited(idUser, idMeeting)== 1)                        
+                {
+                    out.writeUTF("\nThis user is already invited.\n");
+                    continue;
                 }
                 else
                 {
-                    out.writeUTF("\nNo user with that username exists.\n");
+                    if(h.addUserMeeting(idUser, idMeeting, 0)==0)
+                    {
+                        out.writeUTF("\nSome error occurred, please try again.\n");
+                        continue;
+                    }
+                    out.writeUTF("\nUser sucessfully invited.\n");
+                    invited.add(idUser);
                 }
               } catch (RemoteException e) {
                restartRmi();
               }
         }
+        int auxAgenda;
+        // add to chatUsers
+        for(int i=0;i<agendaItems.size();i++)
+        {
+            auxAgenda = agendaItems.get(i);
+            for(int j=0;j<invited.size();i++)
+            {
+                chatUsers.add(new ChatUser(idMeeting,auxAgenda,invited.get(j),false,false));
+            }
+        }
     }
 
-    // FALTA PROTECÇÃO SE AGENDA ITEM JA EXISTE, SE MEETING EXISTE
     public void addAgendaItem() throws RemoteException,IOException
     {
         String agendaTitle;
         // show upcoming meetings
         listMeetings(1);
-        out.writeUTF("ID of the meeting that you want to add agenda items : ");
-        String id = in.readUTF();
-        int idMeeting = Integer.parseInt(id);
-        int checkAdd;
+        int checkMeeting=0,idMeeting=0,checkAdd = 0;
+        ArrayList <String> agenda = new ArrayList <String>();
+        while(checkMeeting ==0)
+        {
+            out.writeUTF("\nId of the meeting that you want to add agenda items: \n");
+            String id =in.readUTF();
+            idMeeting = Integer.parseInt(id);
+            try
+            {
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }catch(RemoteException e)
+            {
+                restartRmi();
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }
+            if(checkMeeting == 0)
+            {
+                out.writeUTF("\nThis ID is not associated to any meeting that you are invited.\n");
+            }
+            else if(checkMeeting == -1)
+            {
+                 out.writeUTF("\nSome error occured, please try again.\n");
+                 return;
+            }
+            else
+            {
+                checkMeeting = 1;
+            }
+            
+        }
         try{
             if(h.checkAgendaClosed(idMeeting)==1)
             {
@@ -906,6 +1161,7 @@ class Connection extends Thread {
             else
             {
                 out.writeUTF("\nItems to be added to the meeting agenda(Insert 0 to stop) : \n");
+                agenda = h.getAgenda(idMeeting);
                 while(true)
                 {
                     out.writeUTF("\nTitle : \n");
@@ -914,12 +1170,11 @@ class Connection extends Thread {
                     {
                         break;
                     }
-                    if(agendaTitle.equalsIgnoreCase("Any other business"))
+                    if(agendaTitle.equalsIgnoreCase("Any other business") ||  agenda.contains(agendaTitle))
                     {
                         out.writeUTF("\nThis agenda item already exists.\n");
                         continue;
                     }
-                    //FALTA ------------------> check if an agenda item already exists
                     checkAdd = h.addAgendaItem(idMeeting,agendaTitle);
                     if(checkAdd ==1)
                     {
@@ -933,21 +1188,47 @@ class Connection extends Thread {
             }
       } catch (RemoteException e) {
        restartRmi();
+       out.writeUTF("\nAn error occurred, please try again.\n");
       }   
   }
 
-    // FALTA PROTECÇÃO SE MEETING JÁ EXISTE
     public void modifyAgendaItem() throws RemoteException,IOException
     {
         String agendaTitle;
         // show upcoming meetings
         listMeetings(1);
-        out.writeUTF("ID of the meeting that you want to add agenda items : ");
-        String id = in.readUTF();
-        int idMeeting = Integer.parseInt(id);
         int checkAdd,checkAnswer = 0;
         String oldTitle = "";
         ArrayList <String> agenda = new ArrayList <String>();
+        int idMeeting=0,checkMeeting=0;
+        while(checkMeeting ==0)
+        {
+            out.writeUTF("\nId of the meeting that you want to modify an agenda item: \n");
+            String id =in.readUTF();
+            idMeeting = Integer.parseInt(id);
+            try
+            {
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }catch(RemoteException e)
+            {
+                restartRmi();
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }
+            if(checkMeeting == 0)
+            {
+                out.writeUTF("\nThis ID is not associated to any meeting that you are invited.\n");
+            }
+            else if(checkMeeting == -1)
+            {
+                 out.writeUTF("\nSome error occured, please try again.\n");
+                 return;
+            }
+            else
+            {
+                checkMeeting = 1;
+            }
+            
+        }
         try{
              
              if(h.checkAgendaClosed(idMeeting)==1)
@@ -1000,18 +1281,42 @@ class Connection extends Thread {
     }
 
 
-
     public void deleteAgendaItem() throws RemoteException,IOException
     {   
         String agendaTitle;
         // show upcoming meetings
         listMeetings(1);
-        out.writeUTF("ID of the meeting that you want to delete an agenda items : ");
-        String id = in.readUTF();
-        int idMeeting = Integer.parseInt(id);
-        int checkAdd,checkAnswer = 0;
+        int checkAnswer = 0,checkMeeting=0,idMeeting=0;
         String oldTitle = "";
         ArrayList <String> agenda = new ArrayList <String>();
+        while(checkMeeting ==0)
+        {
+            out.writeUTF("\nId of the meeting that you want to modify an agenda item: \n");
+            String id =in.readUTF();
+            idMeeting = Integer.parseInt(id);
+            try
+            {
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }catch(RemoteException e)
+            {
+                restartRmi();
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }
+            if(checkMeeting == 0)
+            {
+                out.writeUTF("\nThis ID is not associated to any meeting that you are invited.\n");
+            }
+            else if(checkMeeting == -1)
+            {
+                 out.writeUTF("\nSome error occured, please try again.\n");
+                 return;
+            }
+            else
+            {
+                checkMeeting = 1;
+            }
+            
+        }
         try{
              
              if(h.checkAgendaClosed(idMeeting)==1)
@@ -1021,7 +1326,7 @@ class Connection extends Thread {
              }
              if(h.isInvited(myIdUser,idMeeting) ==0)
              {
-                 out.writeUTF("\nYou are not invited to a meeting with that name.\n");
+                 out.writeUTF("\nYou are not invited to a meeting with that ID.\n");
                  return;
              }
              else
@@ -1061,22 +1366,46 @@ class Connection extends Thread {
 
     
     
-    // FALTA PROTECÇÃO PARA KEYS E ACTIONS JA EXISTENTES, falta Protecção linha 1126 (getAgendaItem), FALTA PROTECÇÃO SE ACTION JA EXISTE, e se checkUser ==-1, se action foi successfully added
     public void addKeysActions() throws RemoteException,IOException
     {
         String agendaTitle,s,toDo;
         // show upcoming meetings
         listMeetings(1);
-        out.writeUTF("ID of the meeting that you want to add actions or key decisions : ");
-        String id = in.readUTF();
-        int idMeeting = Integer.parseInt(id);
-        int checkAdd,checkAnswer = 0,idAgenda=0,checkUser=0,idUser=0;
+        int checkAdd,checkAnswer = 0,idAgenda=0,checkUser=0,idUser=0,checkMeeting=0,idMeeting=0;
         ArrayList <String> agendaItems = new ArrayList <String>();
+                while(checkMeeting ==0)
+        {
+            out.writeUTF("\nId of the meeting that you want to add agenda items: \n");
+            String id =in.readUTF();
+            idMeeting = Integer.parseInt(id);
+            try
+            {
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }catch(RemoteException e)
+            {
+                restartRmi();
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }
+            if(checkMeeting == 0)
+            {
+                out.writeUTF("\nThis ID is not associated to any meeting that you are invited.\n");
+            }
+            else if(checkMeeting == -1)
+            {
+                 out.writeUTF("\nSome error occured, please try again.\n");
+                 return;
+            }
+            else
+            {
+                checkMeeting = 1;
+            }
+            
+        }
         try
         {    
             if(h.checkMeetingGoing(myIdUser,idMeeting) ==0)
             {
-                out.writeUTF("\nA meeting with this parameters do not exists or you are not going to it.\n");
+                out.writeUTF("\nA meeting with this parameters do not exists or you are not going to it .\n");
                 return;
             }
             else
@@ -1117,12 +1446,29 @@ class Connection extends Thread {
                     {
                         out.writeUTF("\nDecision:\n");
                         String decision =in.readUTF();
+                        int checkKey = h.existKey(idAgenda,decision);
+                        if(checkKey ==1)
+                        {
+                            out.writeUTF("\nKey Decision already exists for this agenda item.\n");
+                            continue;
+                        }
+                        if(checkKey == -1)
+                        {
+                            out.writeUTF("\nSome error occurred, please try again.\n");
+                            continue;
+                        }
                         if(decision.equals("0")== true)
                         {
                             break;
                         }
-                        h.addKeyDecision(idAgenda,decision);
-                        out.writeUTF("\nKey Decision successfully added.\n");
+                        if(h.addKeyDecision(idAgenda,decision)==1)
+                        {
+                           out.writeUTF("\nKey Decision successfully added.\n"); 
+                        }
+                        else
+                        {
+                           out.writeUTF("\nSome error occurred, please try again.\n");
+                        }
                     }
                 }
                 out.writeUTF("\nAdd action items to the agenda item ? \n");
@@ -1153,19 +1499,43 @@ class Connection extends Thread {
                             {
                                 out.writeUTF("\nNo user with that username exists.\n");
                             }
+                            else if(idUser == -1)
+                            {
+                                out.writeUTF("\nSome error occurred, please try again.\n");
+                            }
+                            else if(h.alreadyMarked(idAgenda,idUser,action)==1)
+                            {
+                                out.writeUTF("\nAction already marked for this user in this agenda item.\n");
+                            }
                             else
                             {
                                 checkUser =1;
                             }
                         }
                         checkUser =0;
-                        h.addAction(idAgenda,idUser,action);
-                        out.writeUTF("\nAction item sucessfully added.\n");
+                        if(h.addAction(idAgenda,idUser,action)==1)
+                        {
+                            out.writeUTF("\nAction item sucessfully added.\n");
+                        }
+                        else
+                        {
+                            out.writeUTF("\nSome error occurred, please try again.\n");
+                        }
+                        String send = "\nYou were marked to the following action : " + action;
+                        for(int i=0;i<chatUsers.size();i++)
+                        {
+                            if(chatUsers.get(i).getIdUser() == idUser && chatUsers.get(i).isOnline() == true)
+                            {
+                                chatUsers.get(i).getOutput().writeUTF(send);
+                                break;
+                            }
+                        }
                     }
                 }
             }
         }catch (RemoteException e) {    
             restartRmi();
+            out.writeUTF("\nAn error occured, please try again.\n");
         } 
     }
 
@@ -1186,13 +1556,13 @@ class Connection extends Thread {
     }
 
 
-    // PROTECÇÃO SE QUER MUDAR OU NAO, PROTECÇÃO DAS DATAS
     public void changeMeeting() throws RemoteException,IOException
     {
         out.writeUTF("\nUpcomming meetings: \n\n");
         Date date = new Date();
         ArrayList<String> aux;
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+        String send;
         //lists all upcomming meetings, given by flag=1
         try{
  
@@ -1215,11 +1585,29 @@ class Connection extends Thread {
             }
             out.writeUTF("Insert  new leader");
             String newLeader =in.readUTF();
+            int idNewLeader = h.checkUser(newLeader);
             out.writeUTF("Insert  new location");
             String newLocation =in.readUTF();
             if(h.updateMeeting(id_meeting,newDesiredOutcome,date,newLeader,newLocation)==1)
             {
                 out.writeUTF("\n\nMeeting parameters changed sucessfully.\n\n");
+                send = "\nMeeting "  + h.getMeetingName(id_meeting) + " was changed\n";
+                // warning users that some meeting was changed
+                ArrayList <Integer> idSended = new ArrayList<Integer>();
+                for(int i=0;i<chatUsers.size();i++)
+                {
+                    if(chatUsers.get(i).getIdMeeting() == id_meeting && chatUsers.get(i).isOnline() == true && idSended.contains(chatUsers.get(i).getIdUser()) == false)
+                    {
+                       idSended.add(chatUsers.get(i).getIdUser());
+                       chatUsers.get(i).getOutput().writeUTF(send);
+                       if(chatUsers.get(i).getIdUser() == idNewLeader)
+                       {
+                           String s = "\n You are the new leader of the meeting " + h.getMeetingName(id_meeting);
+                           chatUsers.get(i).getOutput().writeUTF(s);
+                       }
+                    }
+                }
+
             }
         } catch (RemoteException e) {
             restartRmi();
@@ -1258,17 +1646,41 @@ class Connection extends Thread {
 
 
 
-    // PROTECÇÃO PARA DATA,MEETING,REMOVER UNSEEN MESSAGES
     public void commentAgendaItem() throws RemoteException,IOException,java.io.NotSerializableException         
     {                                                                                                                                       
         String agendaTitle="",send;
         // show all user meetings
         listMeetings(0);
-        out.writeUTF("ID of the meeting that you want to add agenda items : ");
-        String id = in.readUTF();
-        int idMeeting = Integer.parseInt(id);
-        int checkAdd,checkAnswer = 0,idAgenda  =0,idMessage =0;
+        int checkAdd,checkAnswer = 0,idAgenda  =0,idMessage =0,checkMeeting = 0,idMeeting = 0;
         ArrayList <String> agenda = new ArrayList <String>();
+        while(checkMeeting ==0)
+        {
+            out.writeUTF("\nId of the meeting that you want to modify an agenda item: \n");
+            String id =in.readUTF();
+            idMeeting = Integer.parseInt(id);
+            try
+            {
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }catch(RemoteException e)
+            {
+                restartRmi();
+                checkMeeting =  h.checkMeeting(idMeeting);
+            }
+            if(checkMeeting == 0)
+            {
+                out.writeUTF("\nThis ID is not associated to any meeting that you are invited.\n");
+            }
+            else if(checkMeeting == -1)
+            {
+                 out.writeUTF("\nSome error occured, please try again.\n");
+                 return;
+            }
+            else
+            {
+                checkMeeting = 1;
+            }
+            
+        }
         try{
             
              if(h.isInvited(myIdUser,idMeeting) ==0)
@@ -1316,6 +1728,7 @@ class Connection extends Thread {
                         out.writeUTF("\n" + aux.get(i) + "\n");
                     }
                 }
+                h.removeUnseenMessages(myIdUser,idAgenda);
                 while(true)
                 {
                     String m = name + " : ";
@@ -1370,13 +1783,28 @@ class Connection extends Thread {
     }
   
 
+    
     public void showUnseenMessages() throws RemoteException,IOException
     {
-        String aux = h.showUnseenMessages(myIdUser);
-        System.out.println(aux);
+        String aux ="";
+        try
+        {
+            aux = h.showUnseenMessages(myIdUser);
+        }catch(RemoteException e)
+        {
+            restartRmi();
+            aux = h.showUnseenMessages(myIdUser);
+        }
+        if(aux.equals(""))
+        {
+            out.writeUTF("\nYou have not new messages.\n");
+        }
+        else
+        {
+            out.writeUTF(aux);
+        }
     }
-
-
+  
 }
 
 
