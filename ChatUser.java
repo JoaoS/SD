@@ -24,6 +24,17 @@ public class ChatUser implements Serializable
         this.online = online;
     }
 
+    public ChatUser(int idMeeting,int idAgenda,int idUser,boolean inChat,boolean online,DataOutputStream out) 
+    {
+        this.idMeeting= idMeeting;
+        this.idAgenda = idAgenda;
+        this.idUser = idUser;
+        this.inChat = inChat;
+        this.online = online;
+        this.output =  out;
+    }
+    
+    
     public int getIdMeeting() {
         return idMeeting;
     }

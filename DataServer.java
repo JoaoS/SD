@@ -9,6 +9,7 @@ import java.io.FileOutputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectInputStream;
 import java.io.*;
+import java.sql.CallableStatement;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -115,7 +116,8 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     public int addMeeting(String title, String desiredOutCome, Date date,String leader,String location) throws RemoteException
     {
         PreparedStatement ps;
-        java.sql.Date sqlDate = new java.sql.Date(date.getTime());
+        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+        String sDate = formatter.format(date);
         int id_meeting;
         try
         {
@@ -124,7 +126,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             ps.setInt(1,id_meeting);
             ps.setString(2,title);
             ps.setString(3,desiredOutCome);
-            ps.setDate(4,sqlDate);
+            ps.setString(4,sDate);
             ps.setString(5,leader);
             ps.setString(6,location);
             ps.setInt(7,0);
@@ -175,7 +177,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             e.printStackTrace();
             return 0;
         }
-        return 1;
+        return id_agenda;
     }
     
     
@@ -243,7 +245,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             e.printStackTrace();
             return 0;
         }
-        return 1;
+        return idMessage;
     }
     
     
@@ -276,7 +278,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         Date current = new Date();
         Date auxDate;
         int checkData=0;
-        
+        int going;
         if(flag==0)
         {
            
@@ -284,12 +286,25 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             ArrayList<String> meetings = new ArrayList<String>();
             try {
                 connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
-                rt = connection.createStatement().executeQuery("SELECT me.id_meeting,me.title, me.dat,me.location from "
-                        + "meeting me, user_meeting um WHERE um.id_user = " + idUser);
+                rt = connection.createStatement().executeQuery("SELECT me.id_meeting,me.title, me.dat,me.location,um.going from "
+                        + "meeting me, user_meeting um WHERE um.id_user = " + idUser +" and um.id_meeting = me.id_meeting order by me.id_meeting");
                 connection.commit();
                 while (rt.next()) {
-                    String aux = "Meeting ID :" + rt.getInt(1) + " Title:" + rt.getString(2) + " Date:" + rt.getDate(3) +
-                            " Location :" + rt.getString(4)+"\n";
+                    String aux = "Meeting ID :" + rt.getInt(1) + " Title:" + rt.getString(2) + " Date:" + rt.getString(3) +
+                            " Location :" + rt.getString(4);
+                    going =rt.getInt(5); 
+                    if( going== 1)
+                    {
+                        aux+= " Status : Going.\n";
+                    }
+                    else if(going ==0)
+                    {
+                        aux += " Status : Not accepted yet.\n ";
+                    }
+                    else
+                    {
+                        aux += " Status : Rejected.\n";
+                    }
                     System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>");
                     meetings.add(aux);
                 }
@@ -311,22 +326,34 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             ArrayList<String> meetings = new ArrayList<String>();
             try {
                 connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
-                rt = connection.createStatement().executeQuery("SELECT me.id_meeting,me.title, me.dat,me.location FROM " +
-                        "meeting me, user_meeting um WHERE um.id_user" + " = " +idUser + " and um.id_meeting=me.id_meeting ");
+                rt = connection.createStatement().executeQuery("SELECT me.id_meeting,me.title, me.dat,me.location,um.going FROM " +
+                        "meeting me, user_meeting um WHERE um.id_user" + " = " +idUser + " and um.id_meeting=me.id_meeting order by me.id_meeting ");
                 connection.commit();
                 while (rt.next()) {
  
                     //check which meetings are in the future
-                    auxDate=rt.getDate(3);
+                    String sDate = rt.getString(3);
+                    auxDate= formatter.parse(sDate);
                     if(auxDate.before(current) || auxDate.equals(current))
                     {
                         //date belongs to past , do nothing
                     }
                     else
                     {
-                        //date is in the future
-                        String aux = "Meeting ID :" + rt.getInt(1) + "Title:" + rt.getString(2) + " Date:" + rt.getDate(3) +
-                                " Location" + rt.getString(4)+"\n";
+                        String aux = "Meeting ID :" + rt.getInt(1) + " Title:" + rt.getString(2) + " Date:" + rt.getString(3) +" Location :" + rt.getString(4);
+                        going =rt.getInt(5); 
+                        if( going== 1)
+                        {
+                            aux+= " Status : Going.\n";
+                        }
+                        else if(going ==0)
+                        {
+                            aux += " Status : Not accepted yet.\n ";
+                        }
+                        else
+                        {
+                            aux += " Status : Rejected.\n";
+                        }
                         meetings.add(aux);
                     }
  
@@ -350,6 +377,9 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     {
         ResultSet rt = null;
         String aux = "";
+        ArrayList <String> agenda =  new ArrayList <String>();
+        agenda = getAgenda(idMeeting);
+        int auxGoing;
         try 
         {
             connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
@@ -357,7 +387,34 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             connection.commit();
             while(rt.next())
             {
-                aux += "Meeting ID :"+ rt.getInt(1) +  "Title:" + rt.getString(2) + " Date:" + rt.getDate(3) + " Location :" + rt.getString(4) + "Leader :" + rt.getString(5); 
+                aux += "Meeting ID :"+ rt.getInt(1) +  "Title:" + rt.getString(2) + " Date:" + rt.getString(3) + " Location :" + rt.getString(4) + "Leader :" + rt.getString(5); 
+            }
+            // show invited users
+            aux += "\n\n Invited users : \n\n";
+            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
+            rt = connection.createStatement().executeQuery("SELECT u.username, us.going FROM USERS u,USER_MEETING us WHERE u.id_user = us.id_user AND us.id_meeting = " + idMeeting);
+            connection.commit();
+            while(rt.next())
+            {
+                auxGoing = rt.getInt(2);
+                if(auxGoing== -1)
+                {
+                    aux += "User : " + rt.getString(1) + " Status : Rejected .\n";
+                }
+                else if(auxGoing == 0)
+                {
+                     aux += "User : " + rt.getString(1) + " Status : Not accepted yet.\n ";
+                }
+                else
+                {
+                     aux += "User : " + rt.getString(1) + " Status : Going.\n";
+                }
+            }
+            /////////////////////
+            aux += "\n\nAgenda Items : \n\n";
+            for(int i=0;i<agenda.size();i++)
+            {
+                aux += agenda.get(i) + "\n";
             }
             connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
             rt = connection.createStatement().executeQuery("SELECT ag.title,k.decision FROM AGENDA_ITEM ag, "
@@ -369,14 +426,22 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
                 aux += "Agenda Item : " + rt.getString(1) + " Key Decision : " + rt.getString(2)+"\n";
             }
             connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
-            rt = connection.createStatement().executeQuery("SELECT ag.title,act.action,u.username FROM AGENDA_ITEM ag,ACTION_ITEM act,USERS u "
+            rt = connection.createStatement().executeQuery("SELECT ag.title,act.action,u.username,act.done FROM AGENDA_ITEM ag,ACTION_ITEM act,USERS u "
                     + "WHERE ag.id_agenda = act.id_agenda AND ag.id_meeting = " + idMeeting
             + "AND act.id_user = u.id_user");
             connection.commit();
             aux += "\n\nActions\n\n";
             while(rt.next())
             {
-                aux += "Agenda Item associated : " + rt.getString(1) + " Action : " + rt.getString(2) + "Marked user : " + rt.getString(3);
+                int n = rt.getInt(4);
+                if(n == 1)
+                {
+                    aux += "Agenda Item associated : " + rt.getString(1) + " Action : " + rt.getString(2) + "Marked user : " + rt.getString(3) + "Status : Done \n";
+                }
+                else
+                {
+                    aux += "Agenda Item associated : " + rt.getString(1) + " Action : " + rt.getString(2) + "Marked user : " + rt.getString(3) + "Status : Not done yet \n";
+                }
             }    
         }
         catch(Exception e){
@@ -384,12 +449,11 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             e.printStackTrace();
             return null;
         }
-            System.out.println("aux="+aux);
         return aux;
     }
 
 
-    public String searchActions(String username) throws RemoteException
+    public String searchActions(int idUser) throws RemoteException
     {
         String aux = "";
         int auxnum;
@@ -397,7 +461,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         try 
         {
             connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
-            String s= "SELECT act.action, act.done,ag.title,m.title FROM ACTION_ITEM act,AGENDA_ITEM ag,MEETING m WHERE act.id_agenda = ag.id_agenda AND ag.id_meeting = m.id_meeting";
+            String s= "SELECT act.action, act.done,ag.title,m.title FROM ACTION_ITEM act,AGENDA_ITEM ag,MEETING m WHERE act.id_agenda = ag.id_agenda AND ag.id_meeting = m.id_meeting AND act.id_user = " +idUser;
             rt = connection.createStatement().executeQuery(s);
             connection.commit();
             while(rt.next())
@@ -425,7 +489,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     }
 
 
-    public String searchUndoneActions(String username) throws RemoteException
+    public String searchUndoneActions(int idUser) throws RemoteException
     {
         String aux = "";
         int auxnum;
@@ -433,7 +497,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         try 
         {
             connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
-            String s= "SELECT act.id_action,act.action,ag.title,m.title FROM ACTION_ITEM act,AGENDA_ITEM ag,MEETING m WHERE act.id_agenda = ag.id_agenda AND ag.id_meeting = m.id_meeting AND act.done = 0";
+            String s= "SELECT act.id_action,act.action,ag.title,m.title FROM ACTION_ITEM act,AGENDA_ITEM ag,MEETING m WHERE act.id_agenda = ag.id_agenda AND ag.id_meeting = m.id_meeting AND act.done = 0 AND act.id_user = " + idUser;
             rt = connection.createStatement().executeQuery(s);
             connection.commit();
             while(rt.next())
@@ -520,12 +584,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     public int checkMeeting(String title,Date date, String location) throws RemoteException
     {
         ResultSet rt;
-        java.sql.Date sqlDateTime = new java.sql.Date(date.getTime());
-        System.out.println("Data normal:"+date);
-
-        java.sql.Timestamp sq = new java.sql.Timestamp(date.getTime());  
-        System.out.println("DATAsql:"+sq);
-        
+        java.sql.Date sq = new java.sql.Date(date.getTime());
         try
         {   connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
             rt = connection.createStatement().executeQuery("SELECT id_meeting FROM MEETING WHERE title = '"+title+"' AND dat = '"+sq+"' AND location = '"+location+"'");
@@ -549,11 +608,11 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     * aceita convite da reunião metendo  going a 1
     */
     
-    public int acceptInvitation(int idUser,int cancel_id) throws RemoteException
+    public int acceptInvitation(int idUser,int accept_id) throws RemoteException
     {
         ResultSet rt = null;
         try {
-            rt = connection.createStatement().executeQuery("UPDATE user_meeting SET going = 1 WHERE id_meeting = " + cancel_id +
+            rt = connection.createStatement().executeQuery("UPDATE user_meeting SET going = 1 WHERE id_meeting = " + accept_id +
                     " AND  id_user = " + idUser);
             connection.commit();
         }catch(Exception e){
@@ -564,6 +623,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         return 1;
     }
  
+    
     /*
      *
      *   recusa convite com -1, ainda é necessario alterar integridade nas tabelas
@@ -578,13 +638,13 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             rt = connection.createStatement().executeQuery("UPDATE user_meeting SET going = -1 WHERE id_meeting = " + cancel_id
                     + " AND  id_user = " + idUser);
             connection.commit();
-
+            return 1;
         } catch (Exception e) {
             System.out.println("\nException at declineInvitation.\n");
             e.printStackTrace();
+            return 0;
 
         }
-        return 0;
     }
 
 
@@ -599,7 +659,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             connection.commit();
             while(rt.next())
             {
-                aux += "\nMeeting ID :" + rt.getInt(1) + "Title:" + rt.getString(2) + " Date:" + rt.getDate(3) + " Location :" + rt.getString(4)+"\n";
+                aux += "\nMeeting ID :" + rt.getInt(1) + "Title:" + rt.getString(2) + " Date:" + rt.getString(3) + " Location :" + rt.getString(4)+"\n";
             }
         }
         catch(Exception  e)
@@ -731,10 +791,15 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     public int deleteAgenda(int idMeeting,String oldTitle) throws RemoteException
     {
         ResultSet rt;
+        int agendaId = getAgendaId(idMeeting,oldTitle);
         try
         {    
             rt = connection.createStatement().executeQuery("DELETE FROM AGENDA_ITEM WHERE id_meeting =  " + idMeeting + "AND title = '"+ oldTitle + "'");
             connection.commit();
+            String proc = "{call update_agenda_keys(?)}";
+            CallableStatement cs = connection.prepareCall(proc);
+            cs.setInt(1, agendaId);
+            cs.execute();
         }
         catch(Exception e)
         {
@@ -819,16 +884,19 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
     
 
     
-    public int updateMeeting(int meet_id,String newDesiredOutcome,Date newData,String newLeader,String newlocation) throws RemoteException
+    public int updateMeeting(int idMeeting,String newDesiredOutcome,Date newData,String newLeader,String newlocation) throws RemoteException
     {
  
         ResultSet rt = null;
-        try {
- 
-            rt = connection.createStatement().executeQuery("update MEETING SET desiredoutcome='"+newDesiredOutcome+"' " +
-                    " dat"+newData+" leader='"+newLeader+"' location= '"+newlocation+"'where id_meeting = " + meet_id);
+        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+        String sDate = formatter.format(newData);
+        try 
+        {
+            String ms = "update meeting set desiredoutcome = '" + newDesiredOutcome + "', dat= '" + sDate+ "',leader = '" + newLeader + "',location= '" + newlocation + "' where id_meeting = " + idMeeting ;
+            System.out.println(ms);
+            rt = connection.createStatement().executeQuery(ms);
             connection.commit();
- 
+            
         }catch(Exception e){
             System.out.println("\nException at updateMeeting.\n");
             e.printStackTrace();
@@ -911,7 +979,7 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         try
         {
             connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
-            rt = connection.createStatement().executeQuery("SELECT me.title,ag.title FROM MEETING me,AGENDA_ITEM ag,UNSEEN_MESSAGE umsg,MESSAGE msg WHERE umsg.id_message = msg.id_message AND msg.id_agenda = ag.id_agenda AND ag.id_meeting = me.id_meeting AND umsg.id_user = " + idUser);
+            rt = connection.createStatement().executeQuery("SELECT DISTINCT me.title,ag.title FROM MEETING me,AGENDA_ITEM ag,UNSEEN_MESSAGE umsg,MESSAGE msg WHERE umsg.id_message = msg.id_message AND msg.id_agenda = ag.id_agenda AND ag.id_meeting = me.id_meeting AND umsg.id_user = " + idUser);
             connection.commit();
             while(rt.next())
             {
@@ -933,8 +1001,8 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         ResultSet rt=null;
         String aux="";
         try
-        {
-            rt = connection.createStatement().executeQuery("DELETE FROM UNSEEN_MESSAGE um WHERE id_user = " +idUser + " AND um.id_message = MESSAGE.id_message AND MESSAGE.id_agenda =  " + idAgenda);
+        {   
+            rt = connection.createStatement().executeQuery("DELETE FROM UNSEEN_MESSAGE um WHERE id_message in (SELECT id_message from message where id_agenda = " + idAgenda + ") AND id_user = 2");
             connection.commit();
         }
         catch(Exception  e)
@@ -994,6 +1062,30 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         return 0;
     }
     
+    
+    public int alreadyAccepted(int idMeeting,int idUser) throws RemoteException
+    {
+        ResultSet rt=null;
+        String aux="";
+        try
+        {
+            connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
+            rt = connection.createStatement().executeQuery("SELECT going FROM USER_MEETING WHERE id_user = " + idUser + " AND id_meeting = " + idMeeting);
+            connection.commit();
+            if(rt.next())
+            {
+                return rt.getInt(1);
+            }
+        }
+        catch(Exception e)
+        {
+            System.out.println("\nException at alreadyMarked.\n");
+            e.printStackTrace();
+            return -1;
+        }
+        return 0;
+    }
+    
     public ArrayList <String> getAgendaMessages(int idAgenda) throws RemoteException
     {
         ResultSet rt=null;
@@ -1001,11 +1093,11 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
         try
         {
             connection.createStatement().executeQuery("SET TRANSACTION READ ONLY");
-            rt = connection.createStatement().executeQuery("SELECT message FROM MESSAGE WHERE id_agenda = " + idAgenda);
+            rt = connection.createStatement().executeQuery("SELECT id_message,message FROM MESSAGE WHERE id_agenda = " + idAgenda + "order by id_message");
             connection.commit();
             while(rt.next())
             {
-                aux.add(rt.getString(1));
+                aux.add(rt.getString(2));
             }
         }
         catch(Exception  e)
@@ -1014,7 +1106,11 @@ public class DataServer extends UnicastRemoteObject implements DataServer_I{
             e.printStackTrace();
             return null;
         }
-        return null;
+        for(int i=0;i<aux.size();i++)
+        {
+            System.out.println(aux.get(i));
+        }
+        return aux;
     }
     
     

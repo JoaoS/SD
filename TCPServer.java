@@ -30,8 +30,10 @@ public class TCPServer  {
     public static   int rmiPort;
        
     public static   int WAIT=500; //milisseconds response thread wait
- 
- 
+
+    public static ArrayList <ChatUser> chatUsers = new ArrayList <ChatUser>();   
+
+    
     public static void main(String args[]){
  
              
@@ -83,7 +85,13 @@ public class TCPServer  {
        
         secundaryServer();
         new Extra(udpPort).start();//primary server
-       
+        
+        try{
+            chatUsers = h.getChatUsers();
+        }catch(RemoteException e )
+        {
+            System.out.println("Error loading chatUsers");
+        }
         //////////////////////////////////////////////////////////////////////////////////////////////////
  
         ////////////////////////////////////////////////////////////////////////////////////////////////      
@@ -219,7 +227,6 @@ class Connection extends Thread {
     public int thread_number,myIdUser;
     public DataServer_I h;
     public String name,pass;
-    public static ArrayList <ChatUser> chatUsers = new ArrayList <ChatUser>();    
 
 
     public Connection (Socket aClientSocket, int numero,DataServer_I h){
@@ -242,8 +249,9 @@ class Connection extends Thread {
             }
         }catch(EOFException e){System.out.println("Client disconnected :");
         }catch(IOException e){System.out.println("IO:" + e);
-        }catch(Exception e){System.out.println("some sort of error");
-
+        }catch(Exception e){
+            System.out.println("some sort of error");
+            e.printStackTrace();
         }
     }
 
@@ -357,6 +365,15 @@ class Connection extends Thread {
                 showNewInvitations();
                 searchUndoneActions();
                 showUnseenMessages();
+                // update chatUsers
+                for (int i = 0; i < TCPServer.chatUsers.size(); i++) 
+                {
+                    if (TCPServer.chatUsers.get(i).getIdUser() == myIdUser) 
+                    {
+                        TCPServer.chatUsers.get(i).setOutput(out);
+                        TCPServer.chatUsers.get(i).setOnline(true);
+                    }
+                }
                 while(menu != 0)
                 {
                     menu = menuSecundario();
@@ -419,24 +436,13 @@ class Connection extends Thread {
 
     public  int menuSecundario()throws IOException
     {
-        // update chatUsers every time a new action begin
-        chatUsers = h.getChatUsers();
-        for(int i=0;i<chatUsers.size();i++)
-        {
-            if(chatUsers.get(i).getIdUser() == myIdUser)
-            {
-                        chatUsers.get(i).setOnline(true);
-            }
-        }
         int check= -1;
         int num=0;
         String ini="\n-------------------Secundary MENU-----------------\n\n1->Schedule meeting.\n\n2->Edit meeting.\n\n3.View information of a meeting.\n\n4.View my action items.\n\n5.Mark action item.\n\n6.List my upcoming meetings.\n\n7.Accept meeting invitation.\n\n8.Decline invitation.\n\n0.Exit.\n\n";
-        //write to client
-        out.writeUTF(ini);
-        //get data from client
         do{
           do{ 
                try{
+                    out.writeUTF(ini);
                     out.writeUTF("\nChoose an option : \n");
                     num =Integer.parseInt(in.readUTF());
 
@@ -483,11 +489,11 @@ class Connection extends Thread {
                     break;
                 case 0:
                     check = 0;
-                    for(int i=0;i<chatUsers.size();i++)
+                    for(int i=0;i< TCPServer.chatUsers.size();i++)
                     {
-                        if(chatUsers.get(i).getIdUser() == myIdUser)
+                        if( TCPServer.chatUsers.get(i).getIdUser() == myIdUser)
                         {
-                            chatUsers.get(i).setOnline(false);
+                             TCPServer.chatUsers.get(i).setOnline(false);
                         }
                     }
                     break;
@@ -684,6 +690,9 @@ class Connection extends Thread {
         agendaItems.add("Any other business");
         out.writeUTF("\nMeeting successfully scheduled.\n");
         int auxAgenda;
+        invited.add(myIdUser);
+        DataOutputStream aux = null;
+        boolean auxOnline = false;
         // add to chatUsers
         for(int i=0;i<agendaItems.size();i++)
         {
@@ -696,20 +705,30 @@ class Connection extends Thread {
                 restartRmi();
                 auxAgenda = h.getAgendaId(idMeeting,agendaItems.get(i));
             }
-            for(int j=0;j<invited.size();i++)
+            for(int j=0;j<invited.size();j++)
             {
-                chatUsers.add(new ChatUser(idMeeting,auxAgenda,invited.get(j),false,false));
+                for(int k=0;k<TCPServer.chatUsers.size();k++)
+                {
+                    auxOnline = false;
+                    if(TCPServer.chatUsers.get(k).getIdUser() == invited.get(j) && TCPServer.chatUsers.get(k).isOnline())
+                    {
+                        aux = TCPServer.chatUsers.get(k).getOutput();
+                        auxOnline = TCPServer.chatUsers.get(k).isOnline();
+                        break;
+                    }
+                }
+                TCPServer.chatUsers.add(new ChatUser(idMeeting,auxAgenda,invited.get(j),false,auxOnline,aux));
             }
         }
         ArrayList<Integer> idSended = new ArrayList<Integer>();
-        String send = "\nYou were invited to the meeting " + title + " at " + data + " in " + location;
+        String send = "\n------You were invited to the meeting " + title + " at " + data + " in " + location + "------";
         // warning users that they were invited
-        for (int i = 0; i < chatUsers.size(); i++) 
+        for (int i = 0; i < TCPServer.chatUsers.size(); i++) 
         {
-            if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).isOnline() == true && idSended.contains(chatUsers.get(i).getIdUser()) == false) 
+            if (TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting && TCPServer.chatUsers.get(i).isOnline() == true && idSended.contains(TCPServer.chatUsers.get(i).getIdUser()) == false && TCPServer.chatUsers.get(i).getIdUser() != myIdUser) 
             {
-                idSended.add(chatUsers.get(i).getIdUser());
-                chatUsers.get(i).getOutput().writeUTF(send);
+                idSended.add(TCPServer.chatUsers.get(i).getIdUser());
+                TCPServer.chatUsers.get(i).getOutput().writeUTF(send);
             }
         }
     }
@@ -757,7 +776,7 @@ class Connection extends Thread {
             restartRmi();
             aux = h.searchMeeting(idMeeting);
         }
-        System.out.println(aux);
+        out.writeUTF(aux);
     }
 
     
@@ -766,17 +785,17 @@ class Connection extends Thread {
     {                                                                                                          
         String myActions =  null;
         try{
-            myActions= h.searchActions(name);        
+            myActions= h.searchActions(myIdUser);        
         }catch (RemoteException e) {    
             restartRmi();
-            myActions= h.searchActions(name);
+            myActions= h.searchActions(myIdUser);
         }
         if(myActions.equals(""))
         {
             out.writeUTF("\nYou do not have associated actions.\n");
             return;
         }
-        System.out.println(myActions);
+        out.writeUTF(myActions);
     }
 
     //ponto 5 do menu secundario----------------> NAO TEM PROTECÇÃO PARA ACTION NAO EXISTENTE
@@ -848,7 +867,7 @@ class Connection extends Thread {
         out.writeUTF("\nUpcomming meetings: \n\n");
         Date date = new Date();
         ArrayList<String> aux;
-        int checkMeeting=0, accept_id=0;
+        int checkMeeting=0, accept_id=0,going=0;
         //lists all upcomming meetings, given by flag=1
         try{
  
@@ -878,6 +897,12 @@ class Connection extends Thread {
                     out.writeUTF("\nSome error occurred, please try again.\n");
                     return;
                 }
+                going = h.alreadyAccepted(accept_id,myIdUser);
+                if(going == 1)
+                {
+                    out.writeUTF("\nYou have already accepted this meeting.\n");
+                    return;
+                }
             }
             int check=h.acceptInvitation(myIdUser,accept_id);
             if(check == 1)
@@ -903,7 +928,7 @@ class Connection extends Thread {
         out.writeUTF("\nUpcomming meetings: \n\n");
         Date date = new Date();
         ArrayList<String> aux;
-        int checkMeeting=0, cancel_id=0;
+        int checkMeeting=0, cancel_id=0,going,check=0;
         //lists all upcomming meetings, given by flag=1
         try{
  
@@ -933,8 +958,14 @@ class Connection extends Thread {
                     out.writeUTF("\nSome error occurred, please try again.\n");
                     return;
                 }
+                going = h.alreadyAccepted(cancel_id,myIdUser);
+                if(going == -1)
+                {
+                    out.writeUTF("\nYou have already declined this meeting.\n");
+                    return;
+                }
             }
-            int check = h.declineInvitation(myIdUser,cancel_id);
+            check = h.declineInvitation(myIdUser,cancel_id);
             if(check == 1)
             {
                 out.writeUTF("\nSInvitation successfully canceled\n");
@@ -986,12 +1017,10 @@ class Connection extends Thread {
         int check=0;
         int num=0;
         String ini="\n-------------------Edit meeting MENU-----------------\n\n1->Change parameters of a meeting.\n\n2.Invite users to a meeting.\n\n3.Add items to the meeting agenda.\n\n4.Modify item of the meeting agenda.\n\n5.Delete items from the meeting agenda.\n\n6.Comment item from the meeting agenda.\n\n7.Close agenda meeting.\n\n8.Add keys decisions and action items to a meeting.\n\n";
-        //write to client
-        out.writeUTF(ini);
-        //get data from client
         do{
           do{ 
                try{
+                    out.writeUTF(ini);
                     out.writeUTF("\nChoose an option : \n");
                     num =Integer.parseInt(in.readUTF());
 
@@ -1053,7 +1082,7 @@ class Connection extends Thread {
         listMeetings(1);
         out.writeUTF("ID of the meeting that you want to invite Users : ");
         String id = in.readUTF();
-        int idMeeting = Integer.parseInt(id);
+        int idMeeting = Integer.parseInt(id),loop=0;
         agendaItems = h.getAgendaIds(idMeeting);
         int idUser=0;
         try{
@@ -1101,17 +1130,42 @@ class Connection extends Thread {
               }
         }
         int auxAgenda;
+        DataOutputStream aux = new DataOutputStream(clientSocket.getOutputStream());
+        boolean auxOnline = false;
         // add to chatUsers
         for(int i=0;i<agendaItems.size();i++)
         {
-            auxAgenda = agendaItems.get(i);
-            for(int j=0;j<invited.size();i++)
+            for(int j=0;j<invited.size();j++)
             {
-                chatUsers.add(new ChatUser(idMeeting,auxAgenda,invited.get(j),false,false));
+                for(int k=0;k<TCPServer.chatUsers.size();k++)
+                {
+                    auxOnline = false;
+                    if(TCPServer.chatUsers.get(k).getIdUser() == invited.get(j) && TCPServer.chatUsers.get(k).isOnline())
+                    {
+                        aux = TCPServer.chatUsers.get(k).getOutput();
+                        auxOnline = TCPServer.chatUsers.get(k).isOnline();
+                        break;
+                    }
+                }
+                TCPServer.chatUsers.add(new ChatUser(idMeeting,agendaItems.get(i),invited.get(j),false,auxOnline,aux));
+            }
+        }
+        ArrayList<Integer> idSended = new ArrayList<Integer>();
+        String send = "\n---------You were invited to the meeting " + h.getMeetingName(idMeeting) + "with id : " + idMeeting +".------";
+        // warning users that they were invited
+        for (int i = 0; i < TCPServer.chatUsers.size(); i++) 
+        {
+            if (TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting && TCPServer.chatUsers.get(i).isOnline() == true && idSended.contains(TCPServer.chatUsers.get(i).getIdUser()) == false && invited.contains(TCPServer.chatUsers.get(i).getIdUser())) 
+            {
+                idSended.add(TCPServer.chatUsers.get(i).getIdUser());
+                TCPServer.chatUsers.get(i).getOutput().writeUTF(send);
             }
         }
     }
 
+    
+    
+    
     public void addAgendaItem() throws RemoteException,IOException
     {
         String agendaTitle;
@@ -1335,7 +1389,7 @@ class Connection extends Thread {
                  agenda = h.getAgenda(idMeeting);
                  for(int i=0;i<agenda.size();i++)
                  {
-                     System.out.println("\nAgenda item : " + agenda.get(i));
+                     out.writeUTF("\nAgenda item : " + agenda.get(i));
                  }
                  while(checkAnswer ==0)
                  {
@@ -1368,12 +1422,12 @@ class Connection extends Thread {
     
     public void addKeysActions() throws RemoteException,IOException
     {
-        String agendaTitle,s,toDo;
+        String agendaTitle = "",s,toDo;
         // show upcoming meetings
         listMeetings(1);
         int checkAdd,checkAnswer = 0,idAgenda=0,checkUser=0,idUser=0,checkMeeting=0,idMeeting=0;
         ArrayList <String> agendaItems = new ArrayList <String>();
-                while(checkMeeting ==0)
+        while(checkMeeting ==0)
         {
             out.writeUTF("\nId of the meeting that you want to add agenda items: \n");
             String id =in.readUTF();
@@ -1414,7 +1468,7 @@ class Connection extends Thread {
                 out.writeUTF("\n\nAgenda items : \n\n");
                 for(int i=0;i<agendaItems.size();i++)
                 {
-                    System.out.println("\nAgenda item : " + agendaItems.get(i));
+                    out.writeUTF("\nAgenda item : " + agendaItems.get(i));
                 }
                 while(checkAnswer ==0)
                 {
@@ -1521,12 +1575,12 @@ class Connection extends Thread {
                         {
                             out.writeUTF("\nSome error occurred, please try again.\n");
                         }
-                        String send = "\nYou were marked to the following action : " + action;
-                        for(int i=0;i<chatUsers.size();i++)
+                        String send = "\n--------You were marked to the following action : " + action + "in the agenda item : " + agendaTitle + " of the meeting : " + h.getMeetingName(idMeeting) + "--------";
+                        for(int i=0;i< TCPServer.chatUsers.size();i++)
                         {
-                            if(chatUsers.get(i).getIdUser() == idUser && chatUsers.get(i).isOnline() == true)
+                            if( TCPServer.chatUsers.get(i).getIdUser() == idUser &&  TCPServer.chatUsers.get(i).isOnline() == true)
                             {
-                                chatUsers.get(i).getOutput().writeUTF(send);
+                                TCPServer.chatUsers.get(i).getOutput().writeUTF(send);
                                 break;
                             }
                         }
@@ -1547,12 +1601,19 @@ class Connection extends Thread {
         out.writeUTF(ini);
         String myActions;
         try{
-            myActions= h.searchUndoneActions(name);        
+            myActions= h.searchUndoneActions(myIdUser);        
         }catch (RemoteException e) {    
             restartRmi();
-            myActions= h.searchUndoneActions(name);
+            myActions= h.searchUndoneActions(myIdUser);
         } 
-        System.out.println(myActions);
+        if(myActions.equals(""))
+        {
+            out.writeUTF("\nYou have no undone actions.\n");
+        }
+        else
+        {
+            out.writeUTF(myActions); 
+        }
     }
 
 
@@ -1572,7 +1633,7 @@ class Connection extends Thread {
                 out.writeUTF(aux.get(i));
             }
             out.writeUTF("Select the id of the meeting you want to change :");
-            int id_meeting=Integer.parseInt(in.readUTF());
+            int idMeeting=Integer.parseInt(in.readUTF());
             //protections to verify if the user is allowed to alter the meeting, if he is leader>>>>>>>>>>>>>>>
             out.writeUTF("Insert new desired outcome");
             String newDesiredOutcome=in.readUTF();
@@ -1588,22 +1649,22 @@ class Connection extends Thread {
             int idNewLeader = h.checkUser(newLeader);
             out.writeUTF("Insert  new location");
             String newLocation =in.readUTF();
-            if(h.updateMeeting(id_meeting,newDesiredOutcome,date,newLeader,newLocation)==1)
+            if(h.updateMeeting(idMeeting,newDesiredOutcome,date,newLeader,newLocation)==1)
             {
                 out.writeUTF("\n\nMeeting parameters changed sucessfully.\n\n");
-                send = "\nMeeting "  + h.getMeetingName(id_meeting) + " was changed\n";
+                send = "\n---------Meeting "  + h.getMeetingName(idMeeting) + "with id = "+  idMeeting +" was changed.-----------\n";
                 // warning users that some meeting was changed
                 ArrayList <Integer> idSended = new ArrayList<Integer>();
-                for(int i=0;i<chatUsers.size();i++)
+                for(int i=0;i< TCPServer.chatUsers.size();i++)
                 {
-                    if(chatUsers.get(i).getIdMeeting() == id_meeting && chatUsers.get(i).isOnline() == true && idSended.contains(chatUsers.get(i).getIdUser()) == false)
+                    if( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).isOnline() == true && idSended.contains( TCPServer.chatUsers.get(i).getIdUser()) == false)
                     {
-                       idSended.add(chatUsers.get(i).getIdUser());
-                       chatUsers.get(i).getOutput().writeUTF(send);
-                       if(chatUsers.get(i).getIdUser() == idNewLeader)
+                       idSended.add( TCPServer.chatUsers.get(i).getIdUser());
+                       TCPServer.chatUsers.get(i).getOutput().writeUTF(send);
+                       if( TCPServer.chatUsers.get(i).getIdUser() == idNewLeader)
                        {
-                           String s = "\n You are the new leader of the meeting " + h.getMeetingName(id_meeting);
-                           chatUsers.get(i).getOutput().writeUTF(s);
+                           String s = "\n-------- You are the new leader of the meeting " + h.getMeetingName(idMeeting) +"with id = "+ idMeeting + "-----------";
+                           TCPServer.chatUsers.get(i).getOutput().writeUTF(s);
                        }
                     }
                 }
@@ -1655,7 +1716,7 @@ class Connection extends Thread {
         ArrayList <String> agenda = new ArrayList <String>();
         while(checkMeeting ==0)
         {
-            out.writeUTF("\nId of the meeting that you want to modify an agenda item: \n");
+            out.writeUTF("\nId of the meeting that you want to comment an agenda item: \n");
             String id =in.readUTF();
             idMeeting = Integer.parseInt(id);
             try
@@ -1711,11 +1772,11 @@ class Connection extends Thread {
                     }   
                  }
                 // user is active in chat of this agenda item of the meeting
-                for(int i=0;i<chatUsers.size();i++)
+                for(int i=0;i< TCPServer.chatUsers.size();i++)
                 {
-                  if(chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser)
+                  if( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda &&  TCPServer.chatUsers.get(i).getIdUser() == myIdUser)
                   {
-                      chatUsers.get(i).setInChat(true);
+                       TCPServer.chatUsers.get(i).setInChat(true);
                   }
                 }
                 ArrayList <String> aux = h.getAgendaMessages(idAgenda);
@@ -1736,40 +1797,41 @@ class Connection extends Thread {
                     m+=apend;
                     if(apend.equals("exit"))
                     {
-                        for (int i = 0; i < chatUsers.size(); i++) 
+                        for (int i = 0; i <  TCPServer.chatUsers.size(); i++) 
                         {
-                            if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser) 
+                            if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda &&  TCPServer.chatUsers.get(i).getIdUser() == myIdUser) 
                             {
-                                chatUsers.get(i).setInChat(false);
+                                 TCPServer.chatUsers.get(i).setInChat(false);
                             }
                         }
                         return;
                     }
                     try{
-                        h.addMessage(idAgenda,m);
+                        idMessage = h.addMessage(idAgenda,m);
                     }catch(RemoteException e){
                         restartRmi();
-                        h.addMessage(idAgenda,m);
+                        idMessage = h.addMessage(idAgenda,m);
                     }      
-                    for(int i=0;i<chatUsers.size();i++)
+                    for(int i=0;i< TCPServer.chatUsers.size();i++)
                     {
-                        if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser && chatUsers.get(i).isInChat() == true)
+                        if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda && h.isInvited( TCPServer.chatUsers.get(i).getIdUser(),idMeeting) ==1 &&  TCPServer.chatUsers.get(i).isInChat() == true)
                         {
-                            chatUsers.get(i).getOutput().writeUTF(m);
+                             TCPServer.chatUsers.get(i).getOutput().writeUTF(m);
                         }
-                        if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser && chatUsers.get(i).isInChat() == false)
+                        if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda && h.isInvited( TCPServer.chatUsers.get(i).getIdUser(),idMeeting) ==1 &&  TCPServer.chatUsers.get(i).isInChat() == false &&  TCPServer.chatUsers.get(i).isOnline()==true)
                         {
                             send = "\n-------New messages in the chat of the agenda item " + agendaTitle + " of the meeting " + h.getMeetingName(idMeeting) +" --------\n";
-                            chatUsers.get(i).getOutput().writeUTF(send);
+                             TCPServer.chatUsers.get(i).getOutput().writeUTF(send);
                         }
                     }
+                    System.out.println("\n\n\n\n");
                     try
                     {
-                        for(int i=0;i<chatUsers.size();i++)
+                        for(int i=0;i< TCPServer.chatUsers.size();i++)
                         {
-                            if (chatUsers.get(i).getIdMeeting() == idMeeting && chatUsers.get(i).getIdAgenda() == idAgenda && chatUsers.get(i).getIdUser() == myIdUser && (chatUsers.get(i).isInChat() == false || chatUsers.get(i).isOnline()==false))
+                            if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda && h.isInvited( TCPServer.chatUsers.get(i).getIdUser(),idMeeting) ==1 && ( TCPServer.chatUsers.get(i).isInChat() == false ||  TCPServer.chatUsers.get(i).isOnline()==false))
                             {
-                                h.addUnseenMessage(chatUsers.get(i).getIdUser(),idMessage);
+                                h.addUnseenMessage(idMessage, TCPServer.chatUsers.get(i).getIdUser());
                             }
                         }
                     }catch(RemoteException e){
@@ -1786,6 +1848,8 @@ class Connection extends Thread {
     
     public void showUnseenMessages() throws RemoteException,IOException
     {
+        String ini="\n-------------------Unseen Messages-----------------\n";
+        out.writeUTF(ini);
         String aux ="";
         try
         {
