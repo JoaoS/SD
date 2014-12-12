@@ -1,0 +1,23 @@
+CREATE SEQUENCE users_ids
+ START WITH     1
+ INCREMENT BY   1;
+ 
+ CREATE SEQUENCE message_ids
+ START WITH     1
+ INCREMENT BY   1;
+ 
+ CREATE SEQUENCE meeting_ids
+ START WITH     1
+ INCREMENT BY   1;
+ 
+ CREATE SEQUENCE key_decision_ids
+ START WITH     1
+ INCREMENT BY   1;
+ 
+ CREATE SEQUENCE agenda_item_ids
+ START WITH     1
+ INCREMENT BY   1;
+ 
+ CREATE SEQUENCE action_item_ids
+ START WITH     1
+ INCREMENT BY   1;
