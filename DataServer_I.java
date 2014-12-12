@@ -34,9 +34,6 @@ public interface DataServer_I extends Remote {
     public int checkMeeting(int idMeeting) throws java.rmi.RemoteException;
     public int checkMeeting(String title,Date date, String location) throws java.rmi.RemoteException;
     public void connectDB() throws java.rmi.RemoteException;
-    public int getTotalUsers() throws java.rmi.RemoteException,SQLException;
-    public int getTotalMeetings() throws java.rmi.RemoteException,SQLException;
-    public int getTotalAgendaItems() throws java.rmi.RemoteException,SQLException;
     public int deleteAgenda(int idMeeting,String oldTitle) throws java.rmi.RemoteException;
     public int addKeyDecision(int idAgenda,String decision) throws java.rmi.RemoteException;
     public int addAction(int idAgenda,int idUser,String action) throws java.rmi.RemoteException;

@@ -707,6 +707,11 @@ class Connection extends Thread {
             }
             for(int j=0;j<invited.size();j++)
             {
+                if(invited.get(j) == myIdUser)
+                {
+                    TCPServer.chatUsers.add(new ChatUser(idMeeting,auxAgenda,invited.get(j),false,true,out));
+                    continue;
+                }
                 for(int k=0;k<TCPServer.chatUsers.size();k++)
                 {
                     auxOnline = false;
