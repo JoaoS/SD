@@ -19,7 +19,7 @@ public interface DataServer_I extends Remote {
     public int checkUserPass(String username,String password) throws java.rmi.RemoteException;
     public int acceptInvitation(int idUser,int accept_id) throws java.rmi.RemoteException;
     public String showNewInvitations(int idUser) throws java.rmi.RemoteException;
-    public int isInvited(int idUser,int idMeeting) throws java.rmi.RemoteException;
+    public ArrayList <Integer> getInvitedUsers(int idMeeting) throws java.rmi.RemoteException;
     public int checkMeetingLeader(int idMeeting,String username) throws java.rmi.RemoteException;
     public int checkMeetingGoing(int idUser,int idMeeting) throws java.rmi.RemoteException;
     public ArrayList <String> getAgenda(int idMeeting) throws java.rmi.RemoteException;
@@ -49,4 +49,7 @@ public interface DataServer_I extends Remote {
     public int existKey(int idAgenda,String decision) throws java.rmi.RemoteException;
     public int alreadyMarked(int idAgenda,int idUser,String action) throws java.rmi.RemoteException;
     public int alreadyAccepted(int idMeeting,int idUser) throws java.rmi.RemoteException;
+    public int isInvited(int idUser,int idMeeting) throws java.rmi.RemoteException;
+    public ArrayList <String> getInvitedUsersName(int idMeeting) throws RemoteException;
+
 }

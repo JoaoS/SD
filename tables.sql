@@ -32,7 +32,7 @@ CONSTRAINT fk_name FOREIGN KEY (leader) REFERENCES users(username)
 create table user_meeting
 (id_user NUMBER(10),
 id_meeting NUMBER(10),
-going NUMBER(1) CONSTRAINT check_going CHECK (going in (0,1)),
+going NUMBER(1) CONSTRAINT check_going CHECK (going in (-1,0,1)),
 CONSTRAINT pk_meeting_user PRIMARY KEY(id_user,id_meeting),
 CONSTRAINT fk_user FOREIGN KEY (id_user)  REFERENCES users(id_user),
 CONSTRAINT fk_meeting FOREIGN KEY (id_meeting) REFERENCES meeting(id_meeting)

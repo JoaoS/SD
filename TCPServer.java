@@ -1090,6 +1090,7 @@ class Connection extends Thread {
         int idMeeting = Integer.parseInt(id),loop=0;
         agendaItems = h.getAgendaIds(idMeeting);
         int idUser=0;
+        ArrayList <String> alreadyInvited = h.getInvitedUsersName(idMeeting);
         try{
             if(h.checkMeetingLeader(idMeeting,name) ==0)
             {
@@ -1115,7 +1116,7 @@ class Connection extends Thread {
                     out.writeUTF("\nNo user with that username exists.\n");
                     continue;
                 }
-                if(h.isInvited(idUser, idMeeting)== 1)                        
+                if(alreadyInvited.contains(username))                        
                 {
                     out.writeUTF("\nThis user is already invited.\n");
                     continue;
@@ -1350,7 +1351,7 @@ class Connection extends Thread {
         ArrayList <String> agenda = new ArrayList <String>();
         while(checkMeeting ==0)
         {
-            out.writeUTF("\nId of the meeting that you want to modify an agenda item: \n");
+            out.writeUTF("\nId of the meeting that you want to delete an agenda item: \n");
             String id =in.readUTF();
             idMeeting = Integer.parseInt(id);
             try
@@ -1747,9 +1748,10 @@ class Connection extends Thread {
             }
             
         }
+        ArrayList <Integer> invited = h.getInvitedUsers(idMeeting);
         try{
             
-             if(h.isInvited(myIdUser,idMeeting) ==0)
+             if(invited.contains(myIdUser) == false)
              {
                  out.writeUTF("\nYou are not invited to a meeting with that id.\n");
                  return;
@@ -1819,11 +1821,11 @@ class Connection extends Thread {
                     }      
                     for(int i=0;i< TCPServer.chatUsers.size();i++)
                     {
-                        if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda && h.isInvited( TCPServer.chatUsers.get(i).getIdUser(),idMeeting) ==1 &&  TCPServer.chatUsers.get(i).isInChat() == true)
+                        if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda && invited.contains(TCPServer.chatUsers.get(i).getIdUser()) &&  TCPServer.chatUsers.get(i).isInChat() == true)
                         {
                              TCPServer.chatUsers.get(i).getOutput().writeUTF(m);
                         }
-                        if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda && h.isInvited( TCPServer.chatUsers.get(i).getIdUser(),idMeeting) ==1 &&  TCPServer.chatUsers.get(i).isInChat() == false &&  TCPServer.chatUsers.get(i).isOnline()==true)
+                        if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda && invited.contains( TCPServer.chatUsers.get(i).getIdUser()) &&  TCPServer.chatUsers.get(i).isInChat() == false &&  TCPServer.chatUsers.get(i).isOnline()==true)
                         {
                             send = "\n-------New messages in the chat of the agenda item " + agendaTitle + " of the meeting " + h.getMeetingName(idMeeting) +" --------\n";
                              TCPServer.chatUsers.get(i).getOutput().writeUTF(send);
@@ -1834,7 +1836,7 @@ class Connection extends Thread {
                     {
                         for(int i=0;i< TCPServer.chatUsers.size();i++)
                         {
-                            if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda && h.isInvited( TCPServer.chatUsers.get(i).getIdUser(),idMeeting) ==1 && ( TCPServer.chatUsers.get(i).isInChat() == false ||  TCPServer.chatUsers.get(i).isOnline()==false))
+                            if ( TCPServer.chatUsers.get(i).getIdMeeting() == idMeeting &&  TCPServer.chatUsers.get(i).getIdAgenda() == idAgenda && invited.contains( TCPServer.chatUsers.get(i).getIdUser()) && ( TCPServer.chatUsers.get(i).isInChat() == false ||  TCPServer.chatUsers.get(i).isOnline()==false))
                             {
                                 h.addUnseenMessage(idMessage, TCPServer.chatUsers.get(i).getIdUser());
                             }
